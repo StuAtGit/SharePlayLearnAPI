@@ -48,6 +48,7 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
                 window.sessionStorage.setItem("expires_in", $scope.user_info.token_expiration);
                 /**
                  * Parse jwt in id_token to get user info
+                 * Pulled in jwsjs library so I could do this...
                  */
                 window.sessionStorage.setItem("id_token", $scope.user_info.id_token);
             }

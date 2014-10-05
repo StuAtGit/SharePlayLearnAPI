@@ -6,6 +6,9 @@
 
 package com.shareplaylearn;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -50,7 +53,9 @@ public class OAuth2Callback {
 
     private static final String CLIENT_ID = "726837865357-tqs20u6luqc9oav1bp3vb8ndgavjnrkf.apps.googleusercontent.com";
     private static final String CLIENT_SECRET = "PIjRUpf9JsmoBiugQPfQdfHo";
-    
+    private static final String ACCESS_TOKEN_FIELD = "access_token";
+    private static final String ID_TOKEN_FIELD = "id_token";
+    private static final String TOKEN_EXPIRY_FIELD = "expires_in";
     /**
      * Creates a new instance of OAuth2Callback
      */
@@ -70,7 +75,7 @@ public class OAuth2Callback {
      */
     @GET
     public Response getJson( 
-            @QueryParam("state") String stateToken,
+            @QueryParam("state") String clientState,
             @QueryParam("code") String authCode,
             @QueryParam("session_state") String sessionState 
     ) throws URISyntaxException 
@@ -93,7 +98,7 @@ public class OAuth2Callback {
                 if( statusCode != Response.Status.OK.getStatusCode() )
                 {
                     String statusReason = statusLine.getReasonPhrase();
-                    String loginStatus = "Login failed, google called us back with state token " + stateToken; 
+                    String loginStatus = "Login failed, google called us back with state token " + clientState; 
                     loginStatus += "and auth code " + authCode;
                     loginStatus += ", but then we made a token request and got: " + 
                             response.getStatusLine().getReasonPhrase() + "/" + response.getStatusLine().getStatusCode();
@@ -103,8 +108,27 @@ public class OAuth2Callback {
                     return responseBuilder.build();
                 }
                 String authJson = EntityUtils.toString(response.getEntity());
-                //ResponseBuilder responseBuilder = Response.ok(authJson);
-                String authTokenUri = "http://www.shareplaylearn.com/SharePlayLearn2/#/login_callback?session_state=" + sessionState;
+                /**
+                 * What google returns (as of 01/05/2014)
+                 * https://developers.google.com/accounts/docs/OAuth2Login
+                 * { "access_token" : "ya29.lQAIu_8j0WfvQrOT3ZCExMddengITNLFoBsioB63QN1zNiLMvcQ7wslG", 
+                 *   "token_type" : "Bearer", 
+                 *   "expires_in" : 3597, 
+                 *   "id_token" : "eyJhbGciOiJSUzI1NiIsImtpZCI6IjljNjMxNDFjMzAzNjkyY2E3Y2Q4MDAxZTUxNmNhNDVhZDdlNTJiZTIifQ.eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwic3ViIjoiMTEwODMxNjM0MzU1MjI2MzY0OTQwIiwiYXpwIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiZW1haWwiOiJzdHUyNmNvZGVAZ21haWwuY29tIiwiYXRfaGFzaCI6Im12WnMzaXgtR2NHSVVETThuTW9TaWciLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXVkIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiaWF0IjoxNDEyNTM3NjE0LCJleHAiOjE0MTI1NDE1MTR9.Zc6zsQPkj5an-1XFJLCdOvMDw_rDAqIe3YzA8g2DzhbGqBbd6XiqjxeRl3XDfC1aqp0Vx15fGn5R1e9RIh8Nmp6xWPvCHrA0c4eY8SaIazJ6FBQyK-n3k1sxQNJpuYhVtctAKsmlxFZbilwL2OTqIf0RDx0BpcIgmnk_7gupGxs" 
+                 * }
+                 * 
+                 * TODO: parse JWT for token and store in DB ? 
+                 *       or just do it in JS? JS will need to confirm anyways..
+                 */
+                JsonParser jsonParser = new JsonParser();
+                JsonElement authInfo = jsonParser.parse(authJson);
+                JsonObject authObject = authInfo.getAsJsonObject();
+                String accessToken = authObject.get(ACCESS_TOKEN_FIELD).getAsString();
+                String accessExpires = authObject.get(TOKEN_EXPIRY_FIELD).getAsString();
+                String accessId = authObject.get(ID_TOKEN_FIELD).getAsString();
+                String authTokenUri = "http://www.shareplaylearn.com/SharePlayLearn2/#/login_callback?client_state=" + clientState
+                        + "&" + ACCESS_TOKEN_FIELD + "=" + accessToken + "&" + TOKEN_EXPIRY_FIELD +"=" + accessExpires + ""
+                        + "&" + ID_TOKEN_FIELD + "=" + accessId;
                 ResponseBuilder responseBuilder = Response.seeOther( URI.create(authTokenUri) );
                 responseBuilder.entity(authJson);
                 return responseBuilder.build();

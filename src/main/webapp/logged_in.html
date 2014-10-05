@@ -3,7 +3,8 @@ Angular template for the login page
 -->
 <div class="app-content">
     login code: {{user_info.auth_code}}<br/>
-    session state: {{user_info.session_state}}<br/>
-    login data: {{user_info.login_data}}<br/>
-    login status: {{user_info.login_status}}<br/>
+    <!--session state: {{user_info.session_state}}<br/>-->
+    login data: {{user_info.access_token}}<br/>
+    login id (as jwt): {{user_info.id_token}}<br/>
+    login status: {{user_info.token_expiration}}<br/>
 </div>

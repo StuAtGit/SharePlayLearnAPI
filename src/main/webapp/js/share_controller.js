@@ -33,11 +33,23 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
         * &session_state=3dd372aa714b1b2313a838f8c4a4145b928da51f..8b83
          * @returns {undefined}
          */
-        if( "session_state" in $routeParams ) {
-            if( $routeParams["session_state"] === "insecure_test_token" ) {
-                $scope.user_info.session_state = $routeParams["session_state"];
+        if( "client_state" in $routeParams &&
+            "access_token" in $routeParams &&
+            "expires_in" in $routeParams &&
+            "id_token" in $routeParams ) {
+            if( $routeParams["client_state"] === "insecure_test_token" ) { 
+                $scope.user_info.client_state = $routeParams["session_state"];
+                $scope.user_info.access_token = $routeParams["access_token"];
+                $scope.user_info.token_expiration = $routeParams["expires_in"];
+                $scope.user_info.id_token = $routeParams["id_token"];
                 window.sessionStorage.setItem("auth_code",$scope.user_info.auth_code);
-                window.sessionStorage.setItem("session_state",$scope.user_info.session_state);
+                //window.sessionStorage.setItem("client_state",$scope.user_info.client_state);
+                window.sessionStorage.setItem("access_token", $scope.user_info.access_token);
+                window.sessionStorage.setItem("expires_in", $scope.user_info.token_expiration);
+                /**
+                 * Parse jwt in id_token to get user info
+                 */
+                window.sessionStorage.setItem("id_token", $scope.user_info.id_token);
             }
         }
         

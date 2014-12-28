@@ -6,5 +6,9 @@ Angular template for the login page
     <!--session state: {{user_info.session_state}}<br/>-->
     login data: {{user_info.access_token}}<br/>
     login id (as jwt): {{user_info.id_token}}<br/>
-    login status: {{user_info.token_expiration}}<br/>
+    login id (jwt header): {{user_info.id_token_header}}<br/>
+    login id (jwt signature): {{user_info.id_token_signature}}<br/>
+    login id (jwt payload): {{user_info.id_token_payload}}<br/>
+    <!--login id (jwt payload email?): {{user_info.id_token_payload["email"]}}<br/>
+    login status: {{user_info.token_expiration}}<br/>-->
 </div>

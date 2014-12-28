@@ -126,10 +126,14 @@ public class OAuth2Callback {
                 String accessToken = authObject.get(ACCESS_TOKEN_FIELD).getAsString();
                 String accessExpires = authObject.get(TOKEN_EXPIRY_FIELD).getAsString();
                 String accessId = authObject.get(ID_TOKEN_FIELD).getAsString();
-                String authTokenUri = "http://www.shareplaylearn.com/SharePlayLearn2/#/login_callback?client_state=" + clientState
+                String loggedInEndpoint = "http://www.shareplaylearn.com/SharePlayLearn2/#/login_callback?client_state=" + clientState
                         + "&" + ACCESS_TOKEN_FIELD + "=" + accessToken + "&" + TOKEN_EXPIRY_FIELD +"=" + accessExpires + ""
                         + "&" + ID_TOKEN_FIELD + "=" + accessId;
-                ResponseBuilder responseBuilder = Response.seeOther( URI.create(authTokenUri) );
+                /**
+                 * ID token is a jws signed object.. we should verify this in the servlet, since we can't verify the client state "secret"
+                 * Note that this secret is not the same secret used in the jws
+                 */
+                ResponseBuilder responseBuilder = Response.seeOther(URI.create(loggedInEndpoint) );
                 responseBuilder.entity(authJson);
                 return responseBuilder.build();
             }

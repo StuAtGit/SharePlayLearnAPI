@@ -12,8 +12,9 @@ shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http',
 
 shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
     function( $scope, $routeParams ) {
-        $scope.user_name = window.localStorage.getItem("user_name");
-        $scope.user_cred = window.sessionStorage.getItem("user_cred");
+        $scope.user_name = window.sessionStorage.getItem("user_name");
+        $scope.user_id = window.sessionStorage.getItem("user_id");
+
     }
 ])
 
@@ -54,9 +55,7 @@ function base64urlUnescape(str) {
 shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
     function( $scope, $routeParams, $http ) {
         $scope.user_info = {};
-        $scope.user_info.user_name = window.localStorage.getItem("user_name");
-        $scope.user_info.user_cred = window.sessionStorage.getItem("user_cred");
-        
+
         /**
          * Sample returned URL:
         * http://www.shareplaylearn.com/SharePlayLearn2/api/oauth2callback?
@@ -105,19 +104,22 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
                 $scope.user_info.id_token_header = header;
                 $scope.user_info.id_token_payload = payload;
                 $scope.user_info.id_token_signature = signature;
-                
+                $scope.user_info.user_name = payload.email.split('@')[0];
+                $scope.user_info.user_id = payload.sub;
                 
                 window.sessionStorage.setItem("id_token", $scope.user_info.id_token);
                 window.sessionStorage.setItem("id_token_header", header);
                 window.sessionStorage.setItem("id_token_payload", payload);
+                window.sessionStorage.setItem("user_id", payload.sub);
+                window.sessionStorage.setItem("user_email", payload.email);
+                window.sessionStorage.setItem("user_name",$scope.user_info.user_name)
                 window.sessionStorage.setItem("id_token_signature", signature);
             }
         }
-        
+
+        //? what was I doing with this?
         $scope.saveUser = function () {
             window.localStorage.setItem("user_name",$scope.user_info.user_name);
-            $scope.user_info.user_cred = $scope.user_info.user_name + "'s super secret token thing";
-            window.sessionStorage.setItem("user_cred",$scope.user_info.user_cred);
         }
     }
 ])

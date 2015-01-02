@@ -41,7 +41,7 @@ login id (jwt payload): eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwic3ViIjoiMTEwODMx
  *  <user username="playScript" password="yalpt1m3!" roles="manager-script"/>
  **/
 function base64urlDecode(str) {
-  return str;
+  return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
 };
 
 /*
@@ -98,7 +98,8 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
                  */
                 var id_token_elements = $scope.user_info.id_token.split('.');
                 var header = base64urlDecode(id_token_elements[0]);
-                var payload = base64urlDecode(id_token_elements[1]);
+                var payload = JSON.parse(base64urlDecode(id_token_elements[1]));
+                //do we need to escape this? Gibberish either way.. (coz binary sig)
                 var signature = base64urlDecode(id_token_elements[2]);
               
                 $scope.user_info.id_token_header = header;

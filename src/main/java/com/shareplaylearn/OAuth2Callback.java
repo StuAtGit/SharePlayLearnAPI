@@ -86,7 +86,7 @@ public class OAuth2Callback {
         authArgs.add( new BasicNameValuePair("client_id",CLIENT_ID) );
         authArgs.add( new BasicNameValuePair("client_secret",CLIENT_SECRET) );
         authArgs.add( new BasicNameValuePair("redirect_uri",
-                "http://www.shareplaylearn.com/SharePlayLearn2/api/oauth2callback") );
+                "http://www.shareplaylearn.com/api/oauth2callback") );
         authArgs.add( new BasicNameValuePair("grant_type","authorization_code") );
         UrlEncodedFormEntity tokenRequestEntity = new UrlEncodedFormEntity(authArgs, Consts.UTF_8);
         tokenPost.setEntity(tokenRequestEntity);
@@ -126,7 +126,7 @@ public class OAuth2Callback {
                 String accessToken = authObject.get(ACCESS_TOKEN_FIELD).getAsString();
                 String accessExpires = authObject.get(TOKEN_EXPIRY_FIELD).getAsString();
                 String accessId = authObject.get(ID_TOKEN_FIELD).getAsString();
-                String loggedInEndpoint = "http://www.shareplaylearn.com/SharePlayLearn2/#/login_callback?client_state=" + clientState
+                String loggedInEndpoint = "http://www.shareplaylearn.com/#/login_callback?client_state=" + clientState
                         + "&" + ACCESS_TOKEN_FIELD + "=" + accessToken + "&" + TOKEN_EXPIRY_FIELD +"=" + accessExpires + ""
                         + "&" + ID_TOKEN_FIELD + "=" + accessId;
                 /**
@@ -167,6 +167,6 @@ public class OAuth2Callback {
     @Path("/status")
     public String status()
     {
-        return "up!";
+        return "up! version 0.1";
     }
 }

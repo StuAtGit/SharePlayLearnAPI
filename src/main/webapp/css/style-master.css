@@ -6,19 +6,19 @@
 * { margin: 0; padding: 0; }
 
 body {
-   font-family: Arial, Helvetica, sans-serif;
-   background-color: #e0e0e0;
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: #f0f0f0;
 }
 
-p { 
-    margin: 1em 0; 
+p {
+    margin: 1em 0;
 }
 
 #wrap {
-   float: left;
-   /*width: 500px;*/
-   font-size: 1.2em;
-   /*margin: 3em auto;*/
+    float: left;
+    /*width: 500px;*/
+    font-size: 1.2em;
+    /*margin: 3em auto;*/
     margin-left: 4em;
 }
 
@@ -28,71 +28,34 @@ p {
     background-color: #6699fe;
 }
 
+.header li {
+    list-style: none;
+}
+
 .header .header-section {
     float:left;
     margin-top: 1em;
-    margin-right: 5em;
-}
-
-.header li {
-    list-style: none;
+    margin-right: 1em;
 }
 
 .header .login {
     float:right;
     margin-top: 1em;
-    margin-right: 5em;
+    margin-right: 1em;
 }
 
 .header .header-section:first-child {
     float:left;
-    margin-left: 5em;
+    margin-left: 2em;
     margin-top: 1em;
-    margin-right: 5em;
+    margin-right: 1em;
 }
 
 .header a {
     font-size:1.1em;
     font-weight: bold;
     text-decoration: none;
-    color: #e0e0e0;
-}
-
-.tabs {
-    //background: #fff;
-    ///border: 1px solid #ddd;
-    float:left;
-}
-
-.tabs .tab {
-    float:left;
-}
-
-.tabs .tab a {
-    float: left;
-    display: block;
-    width: 100px;
-    padding: 5px 0;
-    font-weight: bold;
-    text-align: center;
-    text-decoration: none;
-    color: #888;
-    background: #fff; 
-    border-left: 1px solid #ddd;
-    border-bottom: 1px solid #ddd;}
-.tabs .tab:first-child a {
-	border-left: none; }
-.tabs .tab a:hover {
-	color: #333; }
-.tabs .tab a:focus {
-	outline: none; }
-.tabs .tab a.active {
-	background: #fff;
-	color: #333;
-	border-bottom: 1px solid #fff; }
-.tab-content {
-	padding: 3em 1em 1em 1em;
-        display: none;
+    color: #f5f5f5;
 }
 
 .app-content {

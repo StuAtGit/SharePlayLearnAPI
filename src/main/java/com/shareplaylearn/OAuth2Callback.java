@@ -9,19 +9,20 @@ package com.shareplaylearn;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
-import static javax.ws.rs.HttpMethod.POST;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -31,7 +32,6 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.http.Consts;
 import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -51,15 +51,41 @@ public class OAuth2Callback {
     @Context
     private UriInfo context;
 
-    private static final String CLIENT_ID = "726837865357-tqs20u6luqc9oav1bp3vb8ndgavjnrkf.apps.googleusercontent.com";
-    private static final String CLIENT_SECRET = "PIjRUpf9JsmoBiugQPfQdfHo";
+    private String clientId;
+    private String clientSecret;
     private static final String ACCESS_TOKEN_FIELD = "access_token";
     private static final String ID_TOKEN_FIELD = "id_token";
     private static final String TOKEN_EXPIRY_FIELD = "expires_in";
+
     /**
      * Creates a new instance of OAuth2Callback
      */
     public OAuth2Callback() {
+        java.nio.file.Path secretsFile = FileSystems.getDefault().getPath("/etc/shareplaylearn.secrets");
+        try {
+            List<String> lines = Files.readAllLines(secretsFile, StandardCharsets.UTF_8);
+            for( String line : lines ) {
+                if( line.startsWith("GoogleId") ) {
+                    clientId = this.getConfigValue(line);
+                }
+                if( line.startsWith("GoogleSecret") ) {
+                    clientSecret = this.getConfigValue(line);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.err.println("Warning, failed to read secrets file, will not be able to login users or access stored data." + e.getMessage());
+        }
+    }
+
+    public String getConfigValue( String line )
+    {
+        String[] kv = line.split("=");
+        if( kv.length != 2 ) {
+            System.err.println("Warning: badly formatted line: " + line );
+            return "";
+        }
+        return kv[1];
     }
 
     /**
@@ -83,10 +109,10 @@ public class OAuth2Callback {
         HttpPost tokenPost = new HttpPost("https://accounts.google.com/o/oauth2/token");
         List<NameValuePair> authArgs = new ArrayList<NameValuePair>();
         authArgs.add( new BasicNameValuePair("code",authCode) );
-        authArgs.add( new BasicNameValuePair("client_id",CLIENT_ID) );
-        authArgs.add( new BasicNameValuePair("client_secret",CLIENT_SECRET) );
+        authArgs.add( new BasicNameValuePair("client_id", clientId) );
+        authArgs.add( new BasicNameValuePair("client_secret", clientSecret) );
         authArgs.add( new BasicNameValuePair("redirect_uri",
-                "http://www.shareplaylearn.com/api/oauth2callback") );
+                "https://www.shareplaylearn.com/api/oauth2callback") );
         authArgs.add( new BasicNameValuePair("grant_type","authorization_code") );
         UrlEncodedFormEntity tokenRequestEntity = new UrlEncodedFormEntity(authArgs, Consts.UTF_8);
         tokenPost.setEntity(tokenRequestEntity);
@@ -126,7 +152,7 @@ public class OAuth2Callback {
                 String accessToken = authObject.get(ACCESS_TOKEN_FIELD).getAsString();
                 String accessExpires = authObject.get(TOKEN_EXPIRY_FIELD).getAsString();
                 String accessId = authObject.get(ID_TOKEN_FIELD).getAsString();
-                String loggedInEndpoint = "http://www.shareplaylearn.com/#/login_callback?client_state=" + clientState
+                String loggedInEndpoint = "https://www.shareplaylearn.com/#/login_callback?client_state=" + clientState
                         + "&" + ACCESS_TOKEN_FIELD + "=" + accessToken + "&" + TOKEN_EXPIRY_FIELD +"=" + accessExpires + ""
                         + "&" + ID_TOKEN_FIELD + "=" + accessId;
                 /**
@@ -143,7 +169,6 @@ public class OAuth2Callback {
             responseBuilder.status(Response.Status.INTERNAL_SERVER_ERROR);
             return responseBuilder.build();
         }
-        //return Response.seeOther( new URI("http://www.shareplaylearn.com/SharePlayLearn2/#/login_callback?state=" + stateToken + "&code=" + authCode + "&session_state=" + sessionState ) ).build();
     }
 
     /**

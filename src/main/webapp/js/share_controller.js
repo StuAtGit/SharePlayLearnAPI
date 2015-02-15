@@ -36,10 +36,8 @@ login id (as jwt): eyJhbGciOiJSUzI1NiIsImtpZCI6IjQ3MGIyMWIzMjA2NmI1NTEzMTY3NWY2M
 login id (jwt header): eyJhbGciOiJSUzI1NiIsImtpZCI6IjQ3MGIyMWIzMjA2NmI1NTEzMTY3NWY2MjU4Y2MzMGIyOWU2YTAzYTgifQ
 login id (jwt signature): RwTHP4M-RA7lZilUi74OR8NrDknujfZON7PJiJ30Oae1uWFwnlRE3VrQxmfRLDYz4md-K21YbghdWqu90xjVhKAdHkI1v72YYuPm5I-mUAFCGHvuGvyk3bMKOE-RbCo3MPq6WnYMkOeUF0um_IX9flut2T2WOXmPE_w4gK_8obE
 login id (jwt payload): eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwic3ViIjoiMTEwODMxNjM0MzU1MjI2MzY0OTQwIiwiYXpwIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiZW1haWwiOiJzdHUyNmNvZGVAZ21haWwuY29tIiwiYXRfaGFzaCI6IllRRFpSTjRmdnI1Vms4SXM0cEJ2LWciLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXVkIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiaWF0IjoxNDE5NzM2NTEwLCJleHAiOjE0MTk3NDA0MTB9
- 
- * TODO: fix deployment - use maven tomcat deploy, the following is already set up:
- * <user username="playManager" password="yalpt1m3!" roles="manager-gui"/>
- *  <user username="playScript" password="yalpt1m3!" roles="manager-script"/>
+
+ * TODO: fix deployment - updated password ( old one was over http, and checked into github :O.. and make plugin work with ssl?
  **/
 function base64urlDecode(str) {
   return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));

@@ -72,6 +72,8 @@ public class OAuth2Callback {
                     clientSecret = this.getConfigValue(line);
                 }
             }
+            //just to confirm this is the code that is indeed running on the server now.
+            System.out.println("Secrets file read in.");
         } catch (IOException e) {
             e.printStackTrace();
             System.err.println("Warning, failed to read secrets file, will not be able to login users or access stored data." + e.getMessage());

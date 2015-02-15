@@ -62,7 +62,7 @@
                 <artifactId>tomcat7-maven-plugin</artifactId>
                 <version>2.2</version>
                 <configuration>
-                    <url>http://www.shareplaylearn.com/manager/text</url>
+                    <url>https://www.shareplaylearn.com/manager/text</url>
                     <server>shareplaylearn</server>
                     <path>/</path>
 		</configuration>

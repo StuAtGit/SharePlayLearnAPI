@@ -14,7 +14,37 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
     function( $scope, $routeParams ) {
         $scope.user_name = window.sessionStorage.getItem("user_name");
         $scope.user_id = window.sessionStorage.getItem("user_id");
-
+        Parse.initialize("JCcUz8bxlZDvXozzQ7EnSNSDptquCwWSz16BRuW3", "N8bTlY2KKP4dE98QHx3YGzEiCFPwtiTb3t7tCd2A");
+        var UserObject = Parse.Object.extend("UserObject");
+        var userQuery = new Parse.Query(UserObject);
+        var userObject;
+        userQuery.equalTo("userId",$scope.user_id);
+        userQuery.find({
+            success: function( results ) {
+                if( results.length > 1 ) {
+                    alert("More than one user with your user id! " + results[0].userId);
+                }
+                else if( results.length == 1 ){
+                    userObject = results[0];
+                    alert("Retrieved user " + userObject.userName);
+                }
+                else if( results.length == 0 ) {
+                    userObject = new UserObject();
+                    userObject.save({userId:$scope.user_id, userName:$scope.user_name},
+                        {
+                            success: function( userObject ) {
+                                alert( "Saved user object " + $scope.user_name );
+                            },
+                            error: function( userObject, error ) {
+                                alert( "Failed to save user information " + error.code + " " + error.message );
+                            }
+                        });
+                }
+            },
+            error: function( error ) {
+                alert( "Failed to save user information " + error.code + " " + error.message );
+            }
+        });
     }
 ])
 
@@ -23,32 +53,11 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
  * 
  * @param {type} str
  * @returns {unresolved}
- * 
- * atob triggers:
- * DOMException [InvalidCharacterError: "String contains an invalid character"
- * code: 5
- * nsresult: 0x80530005
- 
- * TODO: Write some javascript code that can decode, btoa gets error above
- * 
- * login data: ya29.6gDX_l3SORL7DJa4yk0huk7diA_gwLAyj9apn_xJ-CC5qXzZ1qAC2vfE
-login id (as jwt): eyJhbGciOiJSUzI1NiIsImtpZCI6IjQ3MGIyMWIzMjA2NmI1NTEzMTY3NWY2MjU4Y2MzMGIyOWU2YTAzYTgifQ.eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwic3ViIjoiMTEwODMxNjM0MzU1MjI2MzY0OTQwIiwiYXpwIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiZW1haWwiOiJzdHUyNmNvZGVAZ21haWwuY29tIiwiYXRfaGFzaCI6IllRRFpSTjRmdnI1Vms4SXM0cEJ2LWciLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXVkIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiaWF0IjoxNDE5NzM2NTEwLCJleHAiOjE0MTk3NDA0MTB9.RwTHP4M-RA7lZilUi74OR8NrDknujfZON7PJiJ30Oae1uWFwnlRE3VrQxmfRLDYz4md-K21YbghdWqu90xjVhKAdHkI1v72YYuPm5I-mUAFCGHvuGvyk3bMKOE-RbCo3MPq6WnYMkOeUF0um_IX9flut2T2WOXmPE_w4gK_8obE
-login id (jwt header): eyJhbGciOiJSUzI1NiIsImtpZCI6IjQ3MGIyMWIzMjA2NmI1NTEzMTY3NWY2MjU4Y2MzMGIyOWU2YTAzYTgifQ
-login id (jwt signature): RwTHP4M-RA7lZilUi74OR8NrDknujfZON7PJiJ30Oae1uWFwnlRE3VrQxmfRLDYz4md-K21YbghdWqu90xjVhKAdHkI1v72YYuPm5I-mUAFCGHvuGvyk3bMKOE-RbCo3MPq6WnYMkOeUF0um_IX9flut2T2WOXmPE_w4gK_8obE
-login id (jwt payload): eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwic3ViIjoiMTEwODMxNjM0MzU1MjI2MzY0OTQwIiwiYXpwIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiZW1haWwiOiJzdHUyNmNvZGVAZ21haWwuY29tIiwiYXRfaGFzaCI6IllRRFpSTjRmdnI1Vms4SXM0cEJ2LWciLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXVkIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiaWF0IjoxNDE5NzM2NTEwLCJleHAiOjE0MTk3NDA0MTB9
-
- * TODO: fix deployment - updated password ( old one was over http, and checked into github :O.. and make plugin work with ssl?
+ *
  **/
 function base64urlDecode(str) {
   return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
 };
-
-/*
-function base64urlUnescape(str) {
-  str += Array(5 - str.length % 4).join('=');
-  return str.replace(/\-/g, '+').replace(/_/g, '/');
-}
-*/
 
 shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
     function( $scope, $routeParams, $http ) {
@@ -114,10 +123,10 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
                 window.sessionStorage.setItem("id_token_signature", signature);
             }
         }
-
-        //? what was I doing with this?
-        $scope.saveUser = function () {
-            window.localStorage.setItem("user_name",$scope.user_info.user_name);
+        else {
+            //TODO: try to retrieve user_id, user email, and token from session storage, and validate it
+            //if it's all there and valid, you're still logged in.
+            //need some kind of marker in the model that you're logged in, and token is confirmed.
         }
     }
 ])

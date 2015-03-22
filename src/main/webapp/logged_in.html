@@ -1,7 +1,7 @@
 <!--
 Angular template for the login page
 -->
-<div>
+<div ng-if="user_info.user_name">
     <!--login code: {{user_info.auth_code}}<br/>
     <session state: {{user_info.session_state}}<br/>
     login data: {{user_info.access_token}}<br/>

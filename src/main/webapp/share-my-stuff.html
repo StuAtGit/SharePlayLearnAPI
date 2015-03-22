@@ -1,4 +1,6 @@
-<div class="app-content">
+<div class="app-content" ng-if="user_name">
     {{user_name}}'s stuff. <br/>
-    {{user_cred}}
+</div>
+<div class="app-content" ng-if="!user_name">
+    Please login in to share
 </div>

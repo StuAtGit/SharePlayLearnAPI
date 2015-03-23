@@ -22,11 +22,11 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
         userQuery.find({
             success: function( results ) {
                 if( results.length > 1 ) {
-                    alert("More than one user with your user id! " + results[0].userId);
+                    alert("More than one user with your user id! " + results[0].get("userId"));
                 }
                 else if( results.length == 1 ){
                     userObject = results[0];
-                    alert("Retrieved user " + userObject.userName);
+                    alert("Retrieved user " + userObject.get("userName") + " from Parse");
                 }
                 else if( results.length == 0 ) {
                     userObject = new UserObject();
@@ -45,6 +45,7 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
                 alert( "Failed to save user information " + error.code + " " + error.message );
             }
         });
+        $scope.userObject = userObject;
     }
 ])
 

@@ -19,15 +19,77 @@ and open the template in the editor.
         <!--script language="javascript" type="text/javascript" src="js/bower_components/angular.js"></script-->
         <script src="js/bower_components/angular-strap/dist/angular-strap.min.js"></script>
         <script src="js/bower_components/angular-strap/dist/angular-strap.tpl.min.js"></script>
+
+        <script type="application/javascript" src="js/c3dl/c3dapi.js" ></script>
+        <script type="text/javascript" src="js/jiglib/jiglib.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/cof/jconfig.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/maths/glmatrix.js"></script>
+        <script type="text/javascript" src="js/jiglib/maths/vector3dutil.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/maths/matrix3d.js"></script>
+        <script type="text/javascript" src="js/jiglib/maths/jnumber3d.js"></script>
+        <script type="text/javascript" src="js/jiglib/maths/jmatrix3d.js"></script>
+        <script type="text/javascript" src="js/jiglib/maths/jmaths3d.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/data/contactdata.js"></script>
+        <script type="text/javascript" src="js/jiglib/data/edgedata.js"></script>
+        <script type="text/javascript" src="js/jiglib/data/planedata.js"></script>
+        <script type="text/javascript" src="js/jiglib/data/spandata.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/plugins/iskin3d.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/geometry/jaabox.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/physics/bodypair.js"></script>
+        <script type="text/javascript" src="js/jiglib/physics/cachedimpluse.js"></script>
+        <script type="text/javascript" src="js/jiglib/physics/materialproperties.js"></script>
+        <script type="text/javascript" src="js/jiglib/physics/physicscontroller.js"></script>
+        <script type="text/javascript" src="js/jiglib/physics/physicsstate.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/physics/rigid_body.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/geometry/jbox.js"></script>
+        <script type="text/javascript" src="js/jiglib/geometry/jcapsule.js"></script>
+        <script type="text/javascript" src="js/jiglib/geometry/jplane.js"></script>
+        <script type="text/javascript" src="js/jiglib/geometry/jray.js"></script>
+        <script type="text/javascript" src="js/jiglib/geometry/jsegment.js"></script>
+        <script type="text/javascript" src="js/jiglib/geometry/jsphere.js"></script>
+        <script type="text/javascript" src="js/jiglib/geometry/jterrain.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/collision/collpointinfo.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/collisioninfo.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectinfo.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectfunctor.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectboxbox.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectboxplane.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectboxterrain.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsulebox.js"></script>
+
+        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsulecapsule.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsuleplane.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsuleterrain.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectspherebox.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectspherecapsule.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectsphereplane.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectspheresphere.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/colldetectsphereterrain.js"></script>
+        <script type="text/javascript" src="js/jiglib/collision/collisionsystem.js"></script>
+        <script type="text/javascript" src="js/jiglib/physics/physicssystem.js"></script>
+
+        <script type="application/javascript" src="js/simpleGames/WorldObject.js"></script>
+        <script type="application/javascript" src="js/simpleGames/simpleGame1.js"></script>
+
     </head>
     <body ng-app="shareApp">
         <div class="header">
             <ul>
                 <li class="header-section">
-                    <a href="#/share/stu">Share</a>
+                    <a href="#/share">Share</a>
                 </li>
                 <li class="header-section">
-                    <a href="#">Play</a>
+                    <a href="#/play">Play</a>
                 </li>
                 <li class="header-section">
                     <a href="#">Learn</a>
@@ -39,6 +101,13 @@ and open the template in the editor.
             
         </div>
         <div id="wrap">
+            <canvas id="simpleGame1" style="width: 80%; height: 60%"  width="400" height="300">
+            </canvas><br/>
+            Arrows move you around<br/>
+            Press l to toggle look mode<br/>
+            Click ducks to make them rotate, click water to make new ducks
+
+
             <div class="app-content" ng-view>
             </div>
         </div>

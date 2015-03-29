@@ -17,9 +17,12 @@ shareApp.config(
                 }).when('/login_callback',{
                     templateUrl: "logged_in.html",
                     controller: "LoginCtrl"
-                }).otherwise( {
-                    redirectTo: "/share"
-                });
+                }).when( '/play', {
+                    templateUrl: "play.html",
+                    controller: "PlayCtrl"
+                 }).otherwise( {
+                         redirectTo: "/share"
+                 });
          }
         ]
  )

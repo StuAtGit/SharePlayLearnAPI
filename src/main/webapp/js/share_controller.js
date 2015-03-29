@@ -1,7 +1,5 @@
 var shareAppControllers = angular.module('shareAppControllers',[]);
 
-var user_id_global = "";
-
 shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http', 
     function( $scope, $http ) {
         $http.get("test_data/share_sample.json").success( function(data) {
@@ -10,8 +8,15 @@ shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http',
     }
 ])
 
-shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
+shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
     function( $scope, $routeParams ) {
+
+    }
+])
+
+
+shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
+    function( $scope ) {
         $scope.user_name = window.sessionStorage.getItem("user_name");
         $scope.user_id = window.sessionStorage.getItem("user_id");
         Parse.initialize("JCcUz8bxlZDvXozzQ7EnSNSDptquCwWSz16BRuW3", "N8bTlY2KKP4dE98QHx3YGzEiCFPwtiTb3t7tCd2A");
@@ -26,7 +31,9 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
                 }
                 else if( results.length == 1 ){
                     userObject = results[0];
-                    alert("Retrieved user " + userObject.get("userName") + " from Parse");
+                    if( typeof userObject.get("userProfile") === "undefined" ) {
+                        userObject.put( "userProfile", {"Screen Name":""} );
+                    }
                 }
                 else if( results.length == 0 ) {
                     userObject = new UserObject();
@@ -60,8 +67,8 @@ function base64urlDecode(str) {
   return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
 };
 
-shareAppControllers.controller("LoginCtrl",['$scope','$routeParams','$http',
-    function( $scope, $routeParams, $http ) {
+shareAppControllers.controller("LoginCtrl",['$scope','$routeParams',
+    function( $scope, $routeParams ) {
         $scope.user_info = {};
 
         /**

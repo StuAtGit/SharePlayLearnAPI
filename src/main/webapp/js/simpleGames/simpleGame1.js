@@ -1,23 +1,25 @@
 // Tutorial 2: the javascript
 // The models used need to be parsed before the page
 // render. This code will parse the model files
-// and when this complete the parser will call the
+// and when this completes the parser will call the
 // main. The argument being passed - "tutorial" -
 // is the id of the canvas element on the html page.
 
 var planeWaterModel = "models/waterCircle.dae";
-c3dl.addMainCallBack(canvasMain, "simpleGame1");
-c3dl.addModel("models/duck.dae");
-c3dl.addModel(planeWaterModel);
-
 var timeSinceLastUpdate = 0;
 var physicsSystem = jigLib.PhysicsSystem.getInstance();
-physicsSystem.setGravity( [ 0.0, -32.0, 0.0, 0.0 ] );
 var worldObjects = new Array();
 var ground = null;
 var sceneGraph = null;
 var camera = new c3dl.FreeCamera();
 var lookMode = false;
+
+c3dl.addMainCallBack(canvasMain, "simpleGame1");
+c3dl.addModel("models/duck.dae");
+c3dl.addModel(planeWaterModel);
+
+physicsSystem.setGravity( [ 0.0, -32.0, 0.0, 0.0 ] );
+
 
 function updateScene(time)
 {
@@ -289,6 +291,7 @@ function canvasMain( canvasName )
 	//attaching the renderer to the scene object
 	if( renderer.isReady() )
 	{
+		document.getElementById("legacy-duck-game").style.display = "none";
 		sceneGraph.setAmbientLight( [0.8,0.8,0.8,1] );
 		makeGround(-100.0);
 	

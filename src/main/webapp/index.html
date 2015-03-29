@@ -78,8 +78,8 @@ and open the template in the editor.
         <script type="text/javascript" src="js/jiglib/collision/collisionsystem.js"></script>
         <script type="text/javascript" src="js/jiglib/physics/physicssystem.js"></script>
 
-        <script type="application/javascript" src="js/simpleGames/WorldObject.js"></script>
-        <script type="application/javascript" src="js/simpleGames/simpleGame1.js"></script>
+        <script language="javascript" type="text/javascript" src="js/simpleGames/WorldObject.js"></script>
+        <script language="javascript" type="text/javascript" src="js/simpleGames/simpleGame1.js"></script>
 
     </head>
     <body ng-app="shareApp">
@@ -101,14 +101,12 @@ and open the template in the editor.
             
         </div>
         <div id="wrap">
+            <div id="legacy-duck-game" class="app-content">
+                <canvas id="simpleGame1" width="400" height="300">
+                </canvas>
+            </div>
+            <!-- TODO: create local and remote profiles - even command line will still deploy to local server now! -->
             <!-- TODO: figure out how to make c3dl work with angular templates - needs to find canvas on load -->
-            <canvas id="simpleGame1" style="width: 80%; height: 60%"  width="400" height="300">
-            </canvas><br/>
-            Arrows move you around<br/>
-            Press l to toggle look mode<br/>
-            Click ducks to make them rotate, click water to make new ducks
-
-
             <div class="app-content" ng-view>
             </div>
         </div>

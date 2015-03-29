@@ -2,6 +2,7 @@ var shareAppControllers = angular.module('shareAppControllers',[]);
 
 shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http', 
     function( $scope, $http ) {
+        document.getElementById("legacy-duck-game").style.display = "none";
         $http.get("test_data/share_sample.json").success( function(data) {
             $scope.share_data = data;
         })
@@ -10,13 +11,14 @@ shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http',
 
 shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
     function( $scope, $routeParams ) {
-
+        document.getElementById("legacy-duck-game").style.display = "block";
     }
 ])
 
 
 shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
     function( $scope ) {
+        document.getElementById("legacy-duck-game").style.display = "none";
         $scope.user_name = window.sessionStorage.getItem("user_name");
         $scope.user_id = window.sessionStorage.getItem("user_id");
         Parse.initialize("JCcUz8bxlZDvXozzQ7EnSNSDptquCwWSz16BRuW3", "N8bTlY2KKP4dE98QHx3YGzEiCFPwtiTb3t7tCd2A");
@@ -69,6 +71,7 @@ function base64urlDecode(str) {
 
 shareAppControllers.controller("LoginCtrl",['$scope','$routeParams',
     function( $scope, $routeParams ) {
+        document.getElementById("legacy-duck-game").style.display = "none";
         $scope.user_info = {};
 
         /**

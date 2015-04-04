@@ -11,7 +11,19 @@ shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http',
 
 shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
     function( $scope, $routeParams ) {
-        document.getElementById("legacy-duck-game").style.display = "block";
+        //the duck game is just not that fit for mobile right now :/
+        if(  !(new shareplaylearn.Utils()).isMobile() ) {
+            document.getElementById("legacy-duck-game").style.display = "block";
+            var instructionsNode = document.createElement("span");
+            instructionsNode.appendChild( document.createTextNode("Ducks!! :D") );
+            instructionsNode.appendChild(document.createElement("br"));
+            instructionsNode.appendChild( document.createTextNode("Arrows move you around") );
+            instructionsNode.appendChild( document.createElement("br") );
+            instructionsNode.appendChild( document.createTextNode("Press l to toggle look mode"));
+            instructionsNode.appendChild( document.createElement("br") );
+            instructionsNode.appendChild( document.createTextNode("Click ducks to make them rotate, click water to make new ducks") );
+            document.getElementById("legacy-duck-game").appendChild(instructionsNode);
+        }
     }
 ])
 

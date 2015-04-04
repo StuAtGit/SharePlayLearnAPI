@@ -14,9 +14,12 @@ var sceneGraph = null;
 var camera = new c3dl.FreeCamera();
 var lookMode = false;
 
-c3dl.addMainCallBack(canvasMain, "simpleGame1");
-c3dl.addModel("models/duck.dae");
-c3dl.addModel(planeWaterModel);
+if( !(new shareplaylearn.Utils()).isMobile() )
+{
+	c3dl.addMainCallBack(canvasMain, "simpleGame1");
+	c3dl.addModel("models/duck.dae");
+	c3dl.addModel(planeWaterModel);
+}
 
 physicsSystem.setGravity( [ 0.0, -32.0, 0.0, 0.0 ] );
 
@@ -278,6 +281,10 @@ function pickingCallback( pickResult )
  */
 function canvasMain( canvasName )
 {
+	if( (new shareplaylearn.Utils()).isMobile() )
+	{
+		return;
+	}
 	sceneGraph = new c3dl.Scene();
 	sceneGraph.setCanvasTag(canvasName);
 	

@@ -22,6 +22,7 @@ c3dl.addProgressBars = function ()
   // get all the canvases in the DOM.
   var canvases = document.getElementsByTagName('canvas');
 
+    /**
   // add a progress bar for each of the canvases.
   for (var i = 0, len = canvases.length; i < len; i++)
   {
@@ -51,6 +52,7 @@ c3dl.addProgressBars = function ()
     progressBar.id = 'c3dl_progress_bar_' + i;
     document.body.appendChild(progressBar);
   }
+    **/
 }
 
 /**
@@ -66,13 +68,14 @@ c3dl.removeProgressBars = function ()
   // bar, we know how many bars there will be.  This will allow us to 
   // create the id's of each individual loading bar.
   var numProgressBars = document.getElementsByTagName('canvas').length;
+    /**
   for (var i = 0; i < numProgressBars; i++)
   {
     // generate the id's of the progress bars
     var progressBarID = 'c3dl_progress_bar_' + i;
     var progressBar = document.getElementById(progressBarID);
     document.body.removeChild(progressBar);
-  }
+  }**/
 }
 
 /**

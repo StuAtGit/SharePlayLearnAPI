@@ -16,9 +16,16 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.sun.jersey.glassfish.v3.osgi</groupId>
-            <artifactId>jersey-gf-bundle</artifactId>
-            <version>1.2</version>
+            <groupId>org.glassfish.jersey.containers</groupId>
+            <!-- if your container implements Servlet API older than 3.0, use "jersey-container-servlet-core"  -->
+            <artifactId>jersey-container-servlet</artifactId>
+            <version>2.17</version>
+        </dependency>
+        <!-- Required only when you are using JAX-RS Client -->
+        <dependency>
+            <groupId>org.glassfish.jersey.core</groupId>
+            <artifactId>jersey-client</artifactId>
+            <version>2.17</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
@@ -26,15 +33,14 @@
             <version>4.3.5</version>
         </dependency>
         <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-multipart</artifactId>
+            <version>2.17</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.3</version>
-        </dependency>
-        <dependency>
-            <groupId>javax</groupId>
-            <artifactId>javaee-web-api</artifactId>
-            <version>7.0</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
@@ -62,10 +68,10 @@
                 <artifactId>tomcat7-maven-plugin</artifactId>
                 <version>2.2</version>
                 <configuration>
-                    <url>https://www.shareplaylearn.com/manager/text</url>
-                    <!--url>http://localhost:8080/manager/text</url-->
-                    <!--server>shareplaylearnLocal</server-->
-                    <server>shareplaylearn</server>
+                    <!--<url>https://www.shareplaylearn.com/manager/text</url>-->
+                    <url>http://localhost:8080/manager/text</url>
+                    <server>shareplaylearnLocal</server>
+                    <!--<server>shareplaylearn</server>-->
                     <path>/</path>
 		</configuration>
             </plugin>

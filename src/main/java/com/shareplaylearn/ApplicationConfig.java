@@ -6,8 +6,9 @@
 
 package com.shareplaylearn;
 
+import com.shareplaylearn.resources.File;
+import com.shareplaylearn.resources.OAuth2Callback;
 import org.glassfish.jersey.filter.LoggingFilter;
-import org.glassfish.jersey.media.multipart.MultiPart;
 import org.glassfish.jersey.media.multipart.MultiPartFeature;
 
 import java.util.Set;
@@ -23,8 +24,8 @@ public class ApplicationConfig extends Application {
     @Override
     public Set<Class<?>> getClasses() {
         Set<Class<?>> resources = new java.util.HashSet<>();
-        resources.add(com.shareplaylearn.OAuth2Callback.class);
-        resources.add(com.shareplaylearn.File.class);
+        resources.add(OAuth2Callback.class);
+        resources.add(File.class);
         resources.add(MultiPartFeature.class);
         resources.add(LoggingFilter.class) ;
         return resources;

@@ -4,7 +4,7 @@
  * and open the template in the editor.
  */
 
-package com.shareplaylearn;
+package com.shareplaylearn.resources;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -29,6 +29,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.UriInfo;
+
+import com.shareplaylearn.services.SecretsService;
 import org.apache.http.Consts;
 import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
@@ -50,9 +52,6 @@ public class OAuth2Callback {
 
     @Context
     private UriInfo context;
-
-    private String clientId;
-    private String clientSecret;
     private static final String ACCESS_TOKEN_FIELD = "access_token";
     private static final String ID_TOKEN_FIELD = "id_token";
     private static final String TOKEN_EXPIRY_FIELD = "expires_in";
@@ -61,33 +60,6 @@ public class OAuth2Callback {
      * Creates a new instance of OAuth2Callback
      */
     public OAuth2Callback() {
-        java.nio.file.Path secretsFile = FileSystems.getDefault().getPath("/etc/shareplaylearn.secrets");
-        try {
-            List<String> lines = Files.readAllLines(secretsFile, StandardCharsets.UTF_8);
-            for( String line : lines ) {
-                if( line.startsWith("GoogleId") ) {
-                    clientId = this.getConfigValue(line);
-                }
-                if( line.startsWith("GoogleSecret") ) {
-                    clientSecret = this.getConfigValue(line);
-                }
-            }
-            //just to confirm this is the code that is indeed running on the server now.
-            System.out.println("Secrets file read in.");
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.err.println("Warning, failed to read secrets file, will not be able to login users or access stored data." + e.getMessage());
-        }
-    }
-
-    public String getConfigValue( String line )
-    {
-        String[] kv = line.split("=");
-        if( kv.length != 2 ) {
-            System.err.println("Warning: badly formatted line: " + line );
-            return "";
-        }
-        return kv[1];
     }
 
     /**
@@ -111,8 +83,8 @@ public class OAuth2Callback {
         HttpPost tokenPost = new HttpPost("https://accounts.google.com/o/oauth2/token");
         List<NameValuePair> authArgs = new ArrayList<NameValuePair>();
         authArgs.add( new BasicNameValuePair("code",authCode) );
-        authArgs.add( new BasicNameValuePair("client_id", clientId) );
-        authArgs.add( new BasicNameValuePair("client_secret", clientSecret) );
+        authArgs.add( new BasicNameValuePair("client_id", SecretsService.googleClientId) );
+        authArgs.add( new BasicNameValuePair("client_secret", SecretsService.googleClientSecret) );
         authArgs.add( new BasicNameValuePair("redirect_uri",
                 "https://www.shareplaylearn.com/api/oauth2callback") );
         authArgs.add( new BasicNameValuePair("grant_type","authorization_code") );

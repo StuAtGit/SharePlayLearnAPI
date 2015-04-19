@@ -31,14 +31,20 @@ public class File {
     @POST
     @Path("/form")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public Response postFileForm( @FormDataParam("file") InputStream filestream,
-                                  @FormDataParam("file") FormDataContentDisposition contentDisposition,
-                                  @FormDataParam("filename") String filename )
+    public Response postFileForm( @NotNull @FormDataParam("file") InputStream filestream,
+                                  @NotNull @FormDataParam("file") FormDataContentDisposition contentDisposition,
+                                  @NotNull @FormDataParam("filename") String filename )
     {
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId,SecretsService.amazonClientSecret) );
         ObjectMetadata fileMetadata = new ObjectMetadata();
         fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
+        //odd, but we can still hit this, despite annotation ?
+        //this happens if the upload element is not named 'file'
+        if( contentDisposition == null ) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Content Disposition not supplied! (did you forget to name your file input field?").build();
+        }
         fileMetadata.setContentLength(contentDisposition.getSize());
         s3Client.putObject(S3_BUCKET, filename, filestream, new ObjectMetadata());
         return Response.status(Response.Status.CREATED).entity(filename + " stored").build();

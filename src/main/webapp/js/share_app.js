@@ -6,8 +6,8 @@ shareApp.config(
          function( $routeProvider ) {
              $routeProvider.
                 when('/share', {
-                    templateUrl: "share-intro.html",
-                    controller:  "ShareIntroCtrl"
+                    templateUrl: "share-my-stuff.html",
+                    controller:  "ShareMyStuffCtrl"
                 }).when('/share/:userName' , {
                     templateUrl: "share-my-stuff.html",
                     controller: "ShareMyStuffCtrl"

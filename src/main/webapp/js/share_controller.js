@@ -36,40 +36,7 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
         document.getElementById("legacy-duck-game").style.display = "none";
         $scope.user_name = window.sessionStorage.getItem("user_name");
         $scope.user_id = window.sessionStorage.getItem("user_id");
-        Parse.initialize("JCcUz8bxlZDvXozzQ7EnSNSDptquCwWSz16BRuW3", "N8bTlY2KKP4dE98QHx3YGzEiCFPwtiTb3t7tCd2A");
-        var UserObject = Parse.Object.extend("UserObject");
-        var userQuery = new Parse.Query(UserObject);
-        var userObject;
-        userQuery.equalTo("userId",$scope.user_id);
-        userQuery.find({
-            success: function( results ) {
-                if( results.length > 1 ) {
-                    alert("More than one user with your user id! " + results[0].get("userId"));
-                }
-                else if( results.length == 1 ){
-                    userObject = results[0];
-                    if( typeof userObject.get("userProfile") === "undefined" ) {
-                        userObject.put( "userProfile", {"Screen Name":""} );
-                    }
-                }
-                else if( results.length == 0 ) {
-                    userObject = new UserObject();
-                    userObject.save({userId:$scope.user_id, userName:$scope.user_name},
-                        {
-                            success: function( userObject ) {
-                                alert( "Saved user object " + $scope.user_name );
-                            },
-                            error: function( userObject, error ) {
-                                alert( "Failed to save user information " + error.code + " " + error.message );
-                            }
-                        });
-                }
-            },
-            error: function( error ) {
-                alert( "Failed to save user information " + error.code + " " + error.message );
-            }
-        });
-        $scope.userObject = userObject;
+        $scope.access_token = window.sessionStorage.getItem("access_token");
     }
 ])
 
@@ -90,15 +57,7 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams',
         $scope.user_info = {};
 
         /**
-         * Sample returned URL:
-        * http://www.shareplaylearn.com/SharePlayLearn2/api/oauth2callback?
-        * state=insecure_test_token
-        * &code=4/1Oxqgx2PRd8y4YxC7ByfJOLNiN-2.4hTyImQWEVMREnp6UAPFm0EEMmr5kAI
-        * &authuser=0&num_sessions=1
-        * &prompt=consent
-        * &session_state=3dd372aa714b1b2313a838f8c4a4145b928da51f..8b83
-         * @returns {undefined}
-         * 
+         * Sample User token (see jwt):
          * eyJhbGciOiJSUzI1NiIsImtpZCI6IjljNjMxNDFjMzAzNjkyY2E3Y2Q4MDAxZTUxNmNhNDVhZDdlNTJiZTIifQ.
          * eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwic3ViIjoiMTEwODMxNjM0MzU1MjI2MzY0OTQwIiwiYXpwIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiZW1haWwiOiJzdHUyNmNvZGVAZ21haWwuY29tIiwiYXRfaGFzaCI6Iml3NWg3NUlnZlJzdkdKLUdDcTJNQWciLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXVkIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiaWF0IjoxNDEyNTQ5NTIzLCJleHAiOjE0MTI1NTM0MjN9.
          * iMrciLGvWA__B-PY_1_POk1eus4C5W7K4LdOzZ4DNa3Fi2HaD5t8Wg9usq1-MzswZG4um55abkzlZ6IlmWNc-sJ_wwXXdO-cK4Bj8ucdBjCYWOCnZwx1akjH8Ettv3MGTa76mh7CuipTYpes8Ka_Wn2SPH7mmD1PK-asuj1t8U8
@@ -115,6 +74,8 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams',
                 window.sessionStorage.setItem("auth_code",$scope.user_info.auth_code);
                 //window.sessionStorage.setItem("client_state",$scope.user_info.client_state);
                 window.sessionStorage.setItem("access_token", $scope.user_info.access_token);
+                //might want to calculate expiration as soon as it gets back, so I can have it anchored to a time?
+                //will need to be UTC, etc.
                 window.sessionStorage.setItem("expires_in", $scope.user_info.token_expiration);
                 /**
                  * Parse jwt in id_token to get user info

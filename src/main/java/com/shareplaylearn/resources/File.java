@@ -2,6 +2,7 @@ package com.shareplaylearn.resources;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -14,6 +15,8 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,6 +29,16 @@ import java.util.List;
 public class File {
 
     private static final String S3_BUCKET = "shareplaylearn";
+    /**
+     * With 2MB default upload limit on tomcat, this comes to about:
+     * 1000*2MB ~ 2GB of data stored at any given time.
+     * 1 req/sec ~ 3x10^6 requests a month.
+     * At 10 GB / Month out, and 1 TB / Month in (kyup limits it to 1 TB, so that should throttle that).
+     * https://calculator.s3.amazonaws.com/index.html says we should be spending around $24 max.
+     */
+    //per user
+    private static final int MAX_NUM_FILES = 100;
+    private static final int MAX_NUM_USERS = 10;
     //limit retrieves to 0.5 GB for now (Tomcat should limit uploads to 2MB).
     //raise to 1 GB when we buy more memory (if needed)
     private static final int MAX_RETRIEVE_SIZE = (1024*1024*1024)/2;
@@ -40,6 +53,26 @@ public class File {
     public Response postFile( )
     {
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Not implemented yet").build();
+    }
+
+    /**
+     * This is not good enough. It slows things down, and still costs money.
+     * Eventually, we should have an async task that updates a local cache of
+     * used storage. If the cache says your below X of the limit (think atms),
+     * you're good. Once you get up close, ping Amazon every time.
+     * @param objectListing
+     * @param maxSize
+     * @return
+     */
+    private Response checkObjectListingSize( ObjectListing objectListing, int maxSize )
+    {
+        if( objectListing.isTruncated() && objectListing.getMaxKeys() >= maxSize ) {
+            return Response.status(418).entity("I'm a teapot! j/k - not enough space " + maxSize).build();
+        }
+        if( objectListing.getObjectSummaries().size() >= maxSize ) {
+            return Response.status(418).entity("I'm a teapot! Er, well, at least I can't hold " + maxSize + " stuff.").build();
+        }
+        return Response.status(Response.Status.OK).build();
     }
 
     @POST
@@ -65,10 +98,21 @@ public class File {
         {
             return tokenResponse;
         }
+
         //you could possible parse out the token response username & id and check if they match
         //but maybe we want to override that sometimes?
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId,SecretsService.amazonClientSecret) );
+        ObjectListing curList = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
+        Response listCheck;
+        if( (listCheck = this.checkObjectListingSize(curList, MAX_NUM_FILES)).getStatus() != Response.Status.OK.getStatusCode() ) {
+            return listCheck;
+        }
+        ObjectListing userList = s3Client.listObjects(S3_BUCKET, "/");
+        if( (listCheck = this.checkObjectListingSize(userList, MAX_NUM_USERS)).getStatus() != Response.Status.OK.getStatusCode() ) {
+            return listCheck;
+        }
+
         ObjectMetadata fileMetadata = new ObjectMetadata();
         fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
         fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
@@ -79,12 +123,15 @@ public class File {
                     .entity("Content Disposition not supplied! (did you forget to name your file input field?").build();
         }
         fileMetadata.setContentLength(contentDisposition.getSize());
-        s3Client.putObject(S3_BUCKET, userId + "/" + filename, filestream, new ObjectMetadata());
+        s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, filestream, new ObjectMetadata());
         return Response.status(Response.Status.CREATED).entity(filename + " stored").build();
     }
 
-    private Response getS3Object( AmazonS3Client s3Client, ObjectMetadata objectMetadata, String filename ) {
-        S3Object object = s3Client.getObject(S3_BUCKET, filename);
+    private Response getS3Object( AmazonS3Client s3Client, String itemPath ) {
+        if( !itemPath.startsWith("/") ) {
+            itemPath = "/" + itemPath;
+        }
+        S3Object object = s3Client.getObject(S3_BUCKET, itemPath);
         try( S3ObjectInputStream inputStream = object.getObjectContent() ) {
             long contentLength = object.getObjectMetadata().getContentLength();
             if(contentLength > MAX_RETRIEVE_SIZE)
@@ -109,17 +156,27 @@ public class File {
 
     @GET
     @Produces( MediaType.APPLICATION_OCTET_STREAM )
-    @Path("{filename}")
-    public Response getFile( @NotNull @PathParam("filename") String filename,
-                             @PathParam("access_token") String access_token)
+    @Path("/{userId}/{filename}")
+    public Response getFile( @NotNull @PathParam("userId") String userId,
+                             @NotNull @PathParam("filename") String filename,
+                             @QueryParam("access_token") String access_token)
     {
+        String itemPath = "/" + userId + "/" + filename;
+        /**
+         * Actually, don't need this for now, as java Path annotation won't let anything go too screwy
+         * Eventually, we should regex the filename, though to allow / hiearchies (perhaps)
+        try {
+            URI userBucketPath = new URI(null,null,filename,null);
+        } catch (URISyntaxException e) {
+
+        **/
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
-        ObjectMetadata objectMetadata = s3Client.getObjectMetadata(S3_BUCKET, filename);
+        ObjectMetadata objectMetadata = s3Client.getObjectMetadata(S3_BUCKET, itemPath);
         if( access_token == null  || access_token.length() == 0 ) {
             if(objectMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD) == FileMetadata.IS_PUBLIC) {
-                return getS3Object(s3Client,objectMetadata,filename);
+                return getS3Object(s3Client,filename);
             } else {
                 return Response.status(Response.Status.UNAUTHORIZED).entity("Not authorized").build();
             }
@@ -128,7 +185,7 @@ public class File {
         {
             Response tokenResponse = OAuth2Callback.validateToken(access_token);
             if( tokenResponse.getStatus() == Response.Status.OK.getStatusCode() ) {
-                return getS3Object(s3Client,objectMetadata,filename);
+                return getS3Object(s3Client,itemPath);
             }
             return tokenResponse;
         }

@@ -67,64 +67,82 @@ public class File {
     private Response checkObjectListingSize( ObjectListing objectListing, int maxSize )
     {
         if( objectListing.isTruncated() && objectListing.getMaxKeys() >= maxSize ) {
+            System.out.println("Error, too many uploads");
             return Response.status(418).entity("I'm a teapot! j/k - not enough space " + maxSize).build();
         }
         if( objectListing.getObjectSummaries().size() >= maxSize ) {
+            System.out.println("Error, too many uploads");
             return Response.status(418).entity("I'm a teapot! Er, well, at least I can't hold " + maxSize + " stuff.").build();
         }
-        return Response.status(Response.Status.OK).build();
+        return Response.status(Response.Status.OK).entity("OK").build();
     }
 
     @POST
     @Path("/form")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public Response postFileForm( @NotNull @FormDataParam("file") InputStream filestream,
-                                  @NotNull @FormDataParam("file") FormDataContentDisposition contentDisposition,
-                                  @NotNull @FormDataParam("filename") String filename,
-                                  @NotNull @FormDataParam("user_id") String userId,
-                                  @NotNull @FormDataParam("access_token") String accessToken )
+    public Response postFileForm( @FormDataParam("file") InputStream filestream,
+                                  @FormDataParam("file") FormDataContentDisposition contentDisposition,
+                                  @FormDataParam("filename") String filename,
+                                  @FormDataParam("user_id") String userId,
+                                  @FormDataParam("access_token") String accessToken )
     {
-        if( userId == null || userId.trim().length() == 0 )
-        {
-           return Response.status(Response.Status.BAD_REQUEST).entity("No user id given.").build();
-        }
-        if( accessToken == null || accessToken.trim().length() == 0 )
-        {
-            return Response.status(Response.Status.BAD_REQUEST).entity("No access token given.").build();
-        }
+        try {
+            //these still show up as null, despite annotations
+            if (filestream == null || contentDisposition == null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Content Disposition or file not supplied " + filestream + "," + contentDisposition).build();
 
-        Response tokenResponse = OAuth2Callback.validateToken(accessToken);
-        if( tokenResponse.getStatus() != Response.Status.OK.getStatusCode() )
+            }
+            if (filename == null || filename.trim().length() == 0) {
+                filename = contentDisposition.getFileName();
+            }
+            if (userId == null || userId.trim().length() == 0) {
+                return Response.status(Response.Status.BAD_REQUEST).entity("No user id given.").build();
+            }
+            if (accessToken == null || accessToken.trim().length() == 0) {
+                return Response.status(Response.Status.BAD_REQUEST).entity("No access token given.").build();
+            }
+
+            Response tokenResponse = OAuth2Callback.validateToken(accessToken);
+            if (tokenResponse.getStatus() != Response.Status.OK.getStatusCode()) {
+                return tokenResponse;
+            }
+            System.out.println("file submitted, and user authenticated, attempting upload");
+            //you could possible parse out the token response username & id and check if they match
+            //but maybe we want to override that sometimes?
+            AmazonS3Client s3Client = new AmazonS3Client(
+                    new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
+            ObjectListing curList = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
+            Response listCheck;
+            if ((listCheck = this.checkObjectListingSize(curList, MAX_NUM_FILES)).getStatus() != Response.Status.OK.getStatusCode()) {
+                return listCheck;
+            }
+            ObjectListing userList = s3Client.listObjects(S3_BUCKET, "/");
+            if ((listCheck = this.checkObjectListingSize(userList, MAX_NUM_USERS)).getStatus() != Response.Status.OK.getStatusCode()) {
+                return listCheck;
+            }
+
+            ObjectMetadata fileMetadata = new ObjectMetadata();
+            fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
+            fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
+            fileMetadata.setContentLength(contentDisposition.getSize());
+            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, filestream, new ObjectMetadata());
+            return Response.status(Response.Status.CREATED).entity(filename + " stored").build();
+        }
+        catch( RuntimeException r )
         {
-            return tokenResponse;
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            r.printStackTrace(pw);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
         }
-
-        //you could possible parse out the token response username & id and check if they match
-        //but maybe we want to override that sometimes?
-        AmazonS3Client s3Client = new AmazonS3Client(
-                new BasicAWSCredentials(SecretsService.amazonClientId,SecretsService.amazonClientSecret) );
-        ObjectListing curList = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
-        Response listCheck;
-        if( (listCheck = this.checkObjectListingSize(curList, MAX_NUM_FILES)).getStatus() != Response.Status.OK.getStatusCode() ) {
-            return listCheck;
+        catch( Throwable t )
+        {
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            t.printStackTrace(pw);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
         }
-        ObjectListing userList = s3Client.listObjects(S3_BUCKET, "/");
-        if( (listCheck = this.checkObjectListingSize(userList, MAX_NUM_USERS)).getStatus() != Response.Status.OK.getStatusCode() ) {
-            return listCheck;
-        }
-
-        ObjectMetadata fileMetadata = new ObjectMetadata();
-        fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
-        fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
-        //odd, but we can still hit this, despite annotation ?
-        //this happens if the upload element is not named 'file'
-        if( contentDisposition == null ) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Content Disposition not supplied! (did you forget to name your file input field?").build();
-        }
-        fileMetadata.setContentLength(contentDisposition.getSize());
-        s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, filestream, new ObjectMetadata());
-        return Response.status(Response.Status.CREATED).entity(filename + " stored").build();
     }
 
     private Response getS3Object( AmazonS3Client s3Client, String itemPath ) {

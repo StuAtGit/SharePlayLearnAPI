@@ -108,10 +108,12 @@ public class OAuth2Callback {
         try( CloseableHttpResponse response = ApplicationConfig.httpClient.execute(tokenGet) ) {
             if( response.getStatusLine().getStatusCode() != Response.Status.OK.getStatusCode() ) {
                 System.out.println( "Access token: " + accessToken + " failed: " + response.getStatusLine().getReasonPhrase() );
+                String errorMessage = "";
                 if( response.getEntity() != null ) {
-                    System.out.println( EntityUtils.toString(response.getEntity()) );
+                    errorMessage = EntityUtils.toString(response.getEntity());
+                    System.out.println( errorMessage );
                 }
-                return Response.status(Response.Status.UNAUTHORIZED).entity(response.getEntity()).build();
+                return Response.status(Response.Status.UNAUTHORIZED).entity(errorMessage).build();
             }
             return Response.status(Response.Status.OK).entity(response.getEntity()).build();
         } catch (Exception e) {

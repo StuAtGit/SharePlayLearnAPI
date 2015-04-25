@@ -77,14 +77,25 @@ public class File {
         return Response.status(Response.Status.OK).entity("OK").build();
     }
 
+    /**
+     * TODO: Once we have an async form, send access token in header, not in form
+     * @param filestream
+     * @param contentDisposition
+     * @param filename
+     * @param userId
+     * @param accessToken
+     * @return
+     */
     @POST
     @Path("/form")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public Response postFileForm( @FormDataParam("file") InputStream filestream,
-                                  @FormDataParam("file") FormDataContentDisposition contentDisposition,
+    public Response postFileForm( @NotNull @FormDataParam("file") InputStream filestream,
+                                  @NotNull @FormDataParam("file") FormDataContentDisposition contentDisposition,
+                                  //we'll let this be optional, derive from the contentDisposition for now
+                                  //and add this where we want/need to
                                   @FormDataParam("filename") String filename,
-                                  @FormDataParam("user_id") String userId,
-                                  @FormDataParam("access_token") String accessToken )
+                                  @NotNull @FormDataParam("user_id") String userId,
+                                  @NotNull @FormDataParam("access_token") String accessToken )
     {
         try {
             //these still show up as null, despite annotations
@@ -95,6 +106,10 @@ public class File {
             }
             if (filename == null || filename.trim().length() == 0) {
                 filename = contentDisposition.getFileName();
+                if( filename == null || filename.trim().length() == 0 ) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Filename not specified and not preseent in the content disposition").build();
+                }
             }
             if (userId == null || userId.trim().length() == 0) {
                 return Response.status(Response.Status.BAD_REQUEST).entity("No user id given.").build();
@@ -177,7 +192,7 @@ public class File {
     @Path("/{userId}/{filename}")
     public Response getFile( @NotNull @PathParam("userId") String userId,
                              @NotNull @PathParam("filename") String filename,
-                             @QueryParam("access_token") String access_token)
+                             @HeaderParam("Authorization") String access_token)
     {
         String itemPath = "/" + userId + "/" + filename;
         /**
@@ -208,4 +223,14 @@ public class File {
             return tokenResponse;
         }
     }
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("/{userId}/filelist")
+    public Response getFileList( @NotNull @PathParam("userId") String userId,
+                                 @NotNull @HeaderParam("Authorization") String authorization )
+    {
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Not implemented yet!").build();
+    }
+
 }

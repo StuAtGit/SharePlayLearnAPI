@@ -99,12 +99,21 @@ public class OAuth2Callback {
      "isPlusUser": [boolean],
      "verified": [boolean]
      }
+
+     Sample Unauthorized response:
+     { "error": { "errors": [ { "domain": "global", "reason": "authError", "message": "Invalid Credentials", "locationType": "header", "location": "Authorization" } ], "code": 401, "message": "Invalid Credentials" } }
      * @param accessToken
      * @return
      */
     public static Response validateToken( String accessToken ) {
+        accessToken = accessToken.trim();
+        //allow for access tokens passed directly from header into this method
+        //(that still have the Bearer prefix)
+        if( !accessToken.startsWith("Bearer ") ) {
+            accessToken = "Bearer " + accessToken;
+        }
         HttpGet tokenGet = new HttpGet("https://www.googleapis.com/plus/v1/people/me");
-        tokenGet.addHeader("Authorization","Bearer " + accessToken);
+        tokenGet.addHeader("Authorization", accessToken);
         try( CloseableHttpResponse response = ApplicationConfig.httpClient.execute(tokenGet) ) {
             if( response.getStatusLine().getStatusCode() != Response.Status.OK.getStatusCode() ) {
                 System.out.println( "Access token: " + accessToken + " failed: " + response.getStatusLine().getReasonPhrase() );

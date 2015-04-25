@@ -2,10 +2,8 @@ package com.shareplaylearn.resources;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.*;
+import com.google.gson.Gson;
 import com.shareplaylearn.services.SecretsService;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
@@ -122,7 +120,7 @@ public class File {
             if (tokenResponse.getStatus() != Response.Status.OK.getStatusCode()) {
                 return tokenResponse;
             }
-            System.out.println("file submitted, and user authenticated, attempting upload");
+            System.out.println("file submitted, and user authenticated, checking quota");
             //you could possible parse out the token response username & id and check if they match
             //but maybe we want to override that sometimes?
             AmazonS3Client s3Client = new AmazonS3Client(
@@ -224,13 +222,29 @@ public class File {
         }
     }
 
+    //TODO: get file listing, async forms, and file retrieval working
+    //AND THEN WE NEED SOME UNIT TESTS!!!!!
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/{userId}/filelist")
     public Response getFileList( @NotNull @PathParam("userId") String userId,
                                  @NotNull @HeaderParam("Authorization") String authorization )
     {
-        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Not implemented yet!").build();
+        Response authResponse = OAuth2Callback.validateToken(authorization);
+        if( authResponse.getStatus() != Response.Status.OK.getStatusCode() ) {
+            return authResponse;
+        }
+        AmazonS3Client s3Client = new AmazonS3Client(
+                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
+        );
+        ObjectListing objectListing = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
+        Gson gson = new Gson();
+        List<String> objectNames = new ArrayList<>();
+        List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
+        for( S3ObjectSummary objectSummary : objectSummaries ) {
+            objectNames.add( objectSummary.getKey() );
+        }
+        return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();
     }
 
 }

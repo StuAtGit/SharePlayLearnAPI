@@ -14,10 +14,14 @@ public class SecretsService {
     public static String googleClientSecret;
     public static String amazonClientId;
     public static String amazonClientSecret;
+    public static String testOauthUsername;
+    public static String testOauthPassword;
     private static final String GOOGLE_ID_KEY = "GoogleId";
     private static final String GOOGLE_SECRET_KEY = "GoogleSecret";
     private static final String AMAZON_ID_KEY = "AmazonId";
     private static final String AMAZON_SECRET = "AmazonSecret";
+    private static final String TEST_OAUTH_USER_KEY = "TestOauthUser";
+    private static final String TEST_OAUTH_PASSWORD_KEY = "TestOauthPassword";
 
     static {
         java.nio.file.Path secretsFile = FileSystems.getDefault().getPath("/etc/shareplaylearn.secrets");
@@ -35,6 +39,12 @@ public class SecretsService {
                 }
                 else if(line.startsWith(AMAZON_SECRET)){
                     amazonClientSecret = getConfigValue(line);
+                }
+                else if(line.startsWith(TEST_OAUTH_USER_KEY)){
+                    testOauthUsername = getConfigValue(line);
+                }
+                else if(line.startsWith(TEST_OAUTH_PASSWORD_KEY)){
+                    testOauthPassword = getConfigValue(line);
                 }
 
             }

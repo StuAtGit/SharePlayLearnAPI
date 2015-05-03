@@ -133,7 +133,6 @@ public class OAuth2Callback {
     }
 
     /**
-     * Retrieves representation of an instance of net.shareplaylearn2.OAuth2Callback
      * Sample returned URL:
         * http://www.shareplaylearn.com/SharePlayLearn2/api/oauth2callback?
      * state=insecure_test_token

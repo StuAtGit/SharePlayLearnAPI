@@ -1,16 +1,24 @@
 package com.shareplaylearn.resources.test;
 
+import com.amazonaws.services.elasticache.model.SourceType;
+import com.shareplaylearn.services.SecretsService;
 import junit.framework.TestCase;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.jsoup.Connection;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.assertTrue;
 
@@ -33,18 +41,64 @@ public class BackendTest{
 
      */
     @Test
-    public void LoginTest() throws URISyntaxException {
+    public void LoginTest() throws URISyntaxException, IOException {
         CloseableHttpClient httpClient = HttpClients.custom().build();
         String oAuthQuery = "client_id=726837865357-tqs20u6luqc9oav1bp3vb8ndgavjnrkf.apps.googleusercontent.com&";
         oAuthQuery += "response_type=code&";
         oAuthQuery += "scope=openid email&";
         oAuthQuery += "redirect_uri=https://www.shareplaylearn.com/api/oauth2callback";
         URI oAuthUrl = new URI("https", null, "accounts.google.com", 443, "/o/oauth2/auth", oAuthQuery, null);
-        HttpGet oAuthGet = new HttpGet(oAuthUrl.toString());
-        try( CloseableHttpResponse response = httpClient.execute(oAuthGet)) {
-            if(response.getEntity() != null) {
-                System.out.println(EntityUtils.toString(response.getEntity()));
+        Connection oauthGetCoonnection = Jsoup.connect(oAuthUrl.toString());
+        Connection.Response oauthResponse = oauthGetCoonnection.method(Connection.Method.GET).execute();
+        Map<String,String> oauthCookies = oauthResponse.cookies();
+        Document oauthPage = oauthResponse.parse();
+        Element oauthForm = oauthPage.getElementById("gaia_loginform");
+        System.out.println(oauthForm.toString());
+        Connection oauthPostConnection  = Jsoup.connect("https://accounts.google.com/ServiceLoginAuth");
+        HashMap<String,String> formParams = new HashMap<>();
+        for( Element child : oauthForm.children() ) {
+            if( child.tagName().equals("input")
+                    && child.hasAttr("name") ) {
+
+                String keyName = child.attr("name");
+                String keyValue = null;
+
+                if( keyName.equals("Email") ) {
+                    keyValue = SecretsService.testOauthUsername;
+                    keyValue = "stu26test@gmail.com";
+                } else if( keyName.equals("Passwd")) {
+                    keyValue = SecretsService.testOauthPassword;
+                    keyValue = "tset_pwd$";
+                } else if( child.hasAttr("value") ) {
+                     keyValue = child.attr("value");
+                }
+
+                if( keyValue != null ) {
+                    oauthPostConnection.data(keyName, keyValue);
+                    formParams.put(keyName,keyValue);
+                }
             }
+        }
+        oauthPostConnection.cookies(oauthCookies);
+        //oauthPostConnection.followRedirects(false);
+        System.out.println("form post params were: ");
+        for( Map.Entry<String,String> kvp : formParams.entrySet() ) {
+            System.out.println( kvp.getKey() + "," + kvp.getValue() );
+        }
+        System.out.println("form cookies were: ");
+        for( Map.Entry<String,String> cookie : oauthCookies.entrySet() ) {
+            System.out.println(cookie.getKey() + "," + cookie.getValue());
+        }
+        Connection.Response postResponse = oauthPostConnection.method(Connection.Method.POST).execute();
+        System.out.println("Response headers from google:");
+        for( Map.Entry<String,String> header : postResponse.headers().entrySet() ) {
+            System.out.println(header.getKey() + "," + header.getValue() );
+        }
+        System.out.println( "Final response url was: " + postResponse.url().toString() );
+
+        Document oauthPostResponse = postResponse.parse();
+        System.out.println("*** Oauth response from google *** ");
+        System.out.println(oauthPostResponse.toString());
             /**
              * Check for OK, and post like this form would (grabbing test account & password from Secret Service):
              *
@@ -78,10 +132,6 @@ public class BackendTest{
              </a>
              </form>
              */
-        } catch (IOException e) {
-            e.printStackTrace();
-            assertTrue( false );
-        }
 
     }
 }

@@ -46,6 +46,44 @@ import org.apache.http.util.EntityUtils;
 
 /**
  * REST Web Service
+ * Sample response from googles /people/me:
+ * Queries google and repackages as a Jax-Rs response (and also processes any server errors)
+ * Sample valid response entity from google:
+         {
+         "kind": "plus#person",
+         "etag": "\"\"",
+         "gender": "",
+         "emails": [
+         {
+         "value": "[email]",
+         "type": "account"
+         }
+         ],
+         "urls": [
+         {
+         "value": "https://profiles.google.com/[seriously? buzz?]/buzz",
+         "type": "contributor",
+         "label": "Buzz"
+         }
+         ],
+         "objectType": "person",
+         "id": "[id]",
+         "displayName": "[first Last]",
+         "name": {
+         "familyName": "",
+         "givenName": ""
+         },
+         "url": "https://plus.google.com/[a number]",
+         "image": {
+         "url": "",
+         "isDefault": [boolean]
+         },
+         "isPlusUser": [boolean],
+         "verified": [boolean]
+         }
+
+ Sample Unauthorized response:
+         { "error": { "errors": [ { "domain": "global", "reason": "authError", "message": "Invalid Credentials", "locationType": "header", "location": "Authorization" } ], "code": 401, "message": "Invalid Credentials" } }
  *
  * @author stu
  */
@@ -64,47 +102,6 @@ public class OAuth2Callback {
     public OAuth2Callback() {
     }
 
-    /**
-     * Queries google and repackages as a Jax-Rs response (and also processes any server errors)
-     * Sample valid response entity from google:
-     * {
-     "kind": "plus#person",
-     "etag": "\"\"",
-     "gender": "",
-     "emails": [
-     {
-     "value": "[email]",
-     "type": "account"
-     }
-     ],
-     "urls": [
-     {
-     "value": "https://profiles.google.com/[seriously? buzz?]/buzz",
-     "type": "contributor",
-     "label": "Buzz"
-     }
-     ],
-     "objectType": "person",
-     "id": "[id]",
-     "displayName": "[first Last]",
-     "name": {
-     "familyName": "",
-     "givenName": ""
-     },
-     "url": "https://plus.google.com/[a number]",
-     "image": {
-     "url": "",
-     "isDefault": [boolean]
-     },
-     "isPlusUser": [boolean],
-     "verified": [boolean]
-     }
-
-     Sample Unauthorized response:
-     { "error": { "errors": [ { "domain": "global", "reason": "authError", "message": "Invalid Credentials", "locationType": "header", "location": "Authorization" } ], "code": 401, "message": "Invalid Credentials" } }
-     * @param accessToken
-     * @return
-     */
     public static Response validateToken( String accessToken ) {
         accessToken = accessToken.trim();
         //allow for access tokens passed directly from header into this method
@@ -134,7 +131,7 @@ public class OAuth2Callback {
 
     /**
      * Sample returned URL:
-        * http://www.shareplaylearn.com/SharePlayLearn2/api/oauth2callback?
+     * http://www.shareplaylearn.com/SharePlayLearn2/api/oauth2callback?
      * state=insecure_test_token
      * &code=4/1Oxqgx2PRd8y4YxC7ByfJOLNiN-2.4hTyImQWEVMREnp6UAPFm0EEMmr5kAI
      * &authuser=0&num_sessions=1
@@ -212,22 +209,6 @@ public class OAuth2Callback {
         }
     }
 
-    /**
-     * PUT method for updating or creating an instance of OAuth2Callback
-     * @param content representation for the resource
-     * @return an HTTP response with content of the updated or created resource.
-     */
-    @PUT
-    @Consumes("application/json")
-    public void putJson(String content) {
-    }
-    
-    @POST
-    @Consumes( {MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN} )
-    public Response postCredentials(String content) 
-    {
-        return Response.ok().build();
-    }
     
     @GET
     @Path("/status")

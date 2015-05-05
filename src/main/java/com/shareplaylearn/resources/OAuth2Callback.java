@@ -10,27 +10,19 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.UriInfo;
 
-import com.shareplaylearn.ApplicationConfig;
+import com.shareplaylearn.SharePlayLearnApi;
 import com.shareplaylearn.services.SecretsService;
 import org.apache.http.Consts;
 import org.apache.http.NameValuePair;
@@ -39,8 +31,6 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
@@ -111,7 +101,7 @@ public class OAuth2Callback {
         }
         HttpGet tokenGet = new HttpGet("https://www.googleapis.com/plus/v1/people/me");
         tokenGet.addHeader("Authorization", accessToken);
-        try( CloseableHttpResponse response = ApplicationConfig.httpClient.execute(tokenGet) ) {
+        try( CloseableHttpResponse response = SharePlayLearnApi.httpClient.execute(tokenGet) ) {
             if( response.getStatusLine().getStatusCode() != Response.Status.OK.getStatusCode() ) {
                 System.out.println( "Access token: " + accessToken + " failed: " + response.getStatusLine().getReasonPhrase() );
                 String errorMessage = "";
@@ -157,7 +147,7 @@ public class OAuth2Callback {
         UrlEncodedFormEntity tokenRequestEntity = new UrlEncodedFormEntity(authArgs, Consts.UTF_8);
         tokenPost.setEntity(tokenRequestEntity);
         
-        try( CloseableHttpResponse response = ApplicationConfig.httpClient.execute(tokenPost) ) {
+        try( CloseableHttpResponse response = SharePlayLearnApi.httpClient.execute(tokenPost) ) {
             StatusLine statusLine = response.getStatusLine();
             int statusCode = statusLine.getStatusCode();
             if( statusCode != Response.Status.OK.getStatusCode() )

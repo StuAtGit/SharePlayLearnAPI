@@ -197,7 +197,7 @@ public class BackendTest{
         Thread.sleep(1000);
 
         try {
-            TestClient testClient = new TestClient("localhost", port);
+            TestClient testClient = new TestClient("localhost", port, getLoginInfo().accessToken);
             Thread clientThread = new Thread(testClient);
             clientThread.start();
             clientThread.join();

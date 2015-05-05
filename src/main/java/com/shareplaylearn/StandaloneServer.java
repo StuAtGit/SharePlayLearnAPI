@@ -1,8 +1,12 @@
 package com.shareplaylearn;
 
+import com.shareplaylearn.websockets.GpioController;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.websocket.server.WebSocketHandler;
+import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.glassfish.jersey.servlet.ServletContainer;
 
 /**
@@ -26,13 +30,28 @@ public class StandaloneServer
         this.jettyServer.stop();
     }
 
+    public static class GpioSocketHandler extends WebSocketHandler {
+        @Override
+        public void configure(WebSocketServletFactory factory) {
+            //TODO: work through example here:
+            //TODO: https://github.com/jetty-project/embedded-jetty-websocket-examples/blob/master/native-jetty-websocket-example/src/main/java/org/eclipse/jetty/demo/EventSocket.java
+            ///factory.setCreator(new GpioController());
+        }
+    }
     @Override
     public void run() {
         this.jettyServer = new Server(this.port);
-        ServletContextHandler servletHandler = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
-        ServletHolder servletHolder = new ServletHolder(new ServletContainer(new ApplicationConfig()));
-        servletHandler.addServlet(servletHolder, "/api/*");
-        jettyServer.setHandler(servletHandler);
+        ServletContextHandler jerseyHandler = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
+        WebSocketHandler webSocketHandler = new WebSocketHandler.Simple(GpioController.class);
+        ServletHolder servletHolder = new ServletHolder(new ServletContainer(new SharePlayLearnApi()));
+
+        jerseyHandler.addServlet(servletHolder, "/api/*");
+
+        HandlerList handlers = new HandlerList();
+        handlers.addHandler(jerseyHandler);
+        handlers.addHandler(webSocketHandler);
+        
+        jettyServer.setHandler(handlers);
 
         jettyServer.setDumpAfterStart(true);
         jettyServer.setDumpBeforeStop(true);
@@ -51,7 +70,7 @@ public class StandaloneServer
 
     public static void main( String[] args ) throws Exception {
         //eventually parse these from arguments
-        int timeout = 30000;
+        int timeout = 40000;
         int port = 8080;
 
         StandaloneServer standaloneServer = new StandaloneServer(port);

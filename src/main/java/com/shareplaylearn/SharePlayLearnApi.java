@@ -27,14 +27,16 @@ import javax.ws.rs.core.Application;
  * @author stu
  */
 @javax.ws.rs.ApplicationPath("/api/")
-public class ApplicationConfig extends ResourceConfig {
+public class SharePlayLearnApi extends ResourceConfig {
 
     public static CloseableHttpClient httpClient = HttpClients.custom().build();
 
-    public ApplicationConfig() {
+    public SharePlayLearnApi() {
         try {
             System.out.println("****Share,Play,Learn loading resources.****");
-            packages("com.shareplaylearn.resources");
+            String basePackage = "com.shareplaylearn.";
+            packages(basePackage + "resources");
+            packages(basePackage + "websockets");
             register(org.glassfish.jersey.media.multipart.MultiPartFeature.class);
             register(org.glassfish.jersey.filter.LoggingFilter.class);
         } catch (Exception e) {

@@ -208,12 +208,4 @@ public class OAuth2Callback {
             return responseBuilder.build();
         }
     }
-
-    
-    @GET
-    @Path("/status")
-    public String status()
-    {
-        return "up! version 0.1";
-    }
 }

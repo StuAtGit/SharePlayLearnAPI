@@ -8,11 +8,14 @@ package com.shareplaylearn;
 
 import com.shareplaylearn.resources.File;
 import com.shareplaylearn.resources.OAuth2Callback;
+import com.shareplaylearn.resources.Status;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.glassfish.jersey.filter.LoggingFilter;
 import org.glassfish.jersey.media.multipart.MultiPartFeature;
+import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.server.ServerProperties;
 
 import java.io.IOException;
 import java.util.Set;
@@ -24,18 +27,22 @@ import javax.ws.rs.core.Application;
  * @author stu
  */
 @javax.ws.rs.ApplicationPath("/api/")
-public class ApplicationConfig extends Application {
+public class ApplicationConfig extends ResourceConfig {
 
     public static CloseableHttpClient httpClient = HttpClients.custom().build();
 
-    @Override
-    public Set<Class<?>> getClasses() {
-        Set<Class<?>> resources = new java.util.HashSet<>();
-        resources.add(OAuth2Callback.class);
-        resources.add(File.class);
-        resources.add(MultiPartFeature.class);
-        resources.add(LoggingFilter.class) ;
-        return resources;
+    public ApplicationConfig() {
+        try {
+            System.out.println("****Share,Play,Learn loading resources.****");
+            packages("com.shareplaylearn.resources");
+            register(org.glassfish.jersey.media.multipart.MultiPartFeature.class);
+            register(org.glassfish.jersey.filter.LoggingFilter.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println( "********* Share,Play,Learn application started**** ");
+        property(ServerProperties.TRACING, "ALL");
+        System.out.println("*******Tracing enabled************");
     }
 
     @PreDestroy

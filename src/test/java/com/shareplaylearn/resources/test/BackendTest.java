@@ -2,7 +2,9 @@ package com.shareplaylearn.resources.test;
 
 import com.amazonaws.services.elasticache.model.SourceType;
 import com.google.gson.Gson;
+import com.shareplaylearn.StandaloneServer;
 import com.shareplaylearn.services.SecretsService;
+import com.shareplaylearn.utilities.Exceptions;
 import junit.framework.TestCase;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -16,6 +18,7 @@ import org.jsoup.nodes.Element;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -135,7 +138,7 @@ public class BackendTest{
         for( Map.Entry<String,String> cookie : oauthCookies.entrySet() ) {
             System.out.println(cookie.getKey() + "," + cookie.getValue());
         }
-        Connection.Response postResponse = oauthPostConnection.method(Connection.Method.POST).execute();
+        Connection.Response postResponse = oauthPostConnection.method(Connection.Method.POST).timeout(5000).execute();
         if( postResponse.statusCode() != 200 ) {
             System.out.println("Failed to validate credentials with google: " + postResponse.statusCode());
             System.out.println(postResponse.statusMessage());
@@ -171,12 +174,39 @@ public class BackendTest{
     }
 
     @Test
-    public void TestLogin() throws IOException, URISyntaxException {
+    public void TestFileResource() throws Exception {
 
         //TODO: first test - implement Standalone server, and post a file to the File resource
         //TODO: then we can start on file listings, etc (with unit tests)
-        LoginInfo loginInfo = getLoginInfo();
-        Gson gson = new Gson();
-        System.out.println(gson.toJson(loginInfo));
+        try {
+            LoginInfo loginInfo = getLoginInfo();
+            Gson gson = new Gson();
+            System.out.println(gson.toJson(loginInfo));
+        } catch (SocketTimeoutException e ) {
+            e.printStackTrace();
+            System.out.println("failed to connect to oauth provider " + e.getMessage());
+            //assertTrue( false );
+        }
+
+        int timeout = 10000;
+        int port = 8080;
+
+        StandaloneServer standaloneServer = new StandaloneServer(port);
+        Thread serverThread = new Thread(standaloneServer);
+        serverThread.start();
+        Thread.sleep(1000);
+
+        try {
+            TestClient testClient = new TestClient("localhost", port);
+            Thread clientThread = new Thread(testClient);
+            clientThread.start();
+            clientThread.join();
+            assertTrue(testClient.passed());
+        } catch( RuntimeException e ) {
+            System.out.println("Error in client tests " + Exceptions.asString(e) );
+        }
+
+        serverThread.join(timeout);
+        standaloneServer.stop();
     }
 }

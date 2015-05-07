@@ -1,7 +1,9 @@
-package com.shareplaylearn;
+package com.shareplaylearn.resources.test;
 
-import com.shareplaylearn.websockets.GpioController;
+import com.shareplaylearn.GpioController;
+import com.shareplaylearn.SharePlayLearnApi;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -43,13 +45,14 @@ public class StandaloneServer
         this.jettyServer = new Server(this.port);
         ServletContextHandler jerseyHandler = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
         WebSocketHandler webSocketHandler = new WebSocketHandler.Simple(GpioController.class);
-        ServletHolder servletHolder = new ServletHolder(new ServletContainer(new SharePlayLearnApi()));
 
+        ServletHolder servletHolder = new ServletHolder(new ServletContainer(new SharePlayLearnApi()));
         jerseyHandler.addServlet(servletHolder, "/api/*");
+        ContextHandler webSocketContext = new ContextHandler(webSocketHandler, "/ws/*");
 
         HandlerList handlers = new HandlerList();
         handlers.addHandler(jerseyHandler);
-        handlers.addHandler(webSocketHandler);
+        handlers.addHandler(webSocketContext);
         
         jettyServer.setHandler(handlers);
 

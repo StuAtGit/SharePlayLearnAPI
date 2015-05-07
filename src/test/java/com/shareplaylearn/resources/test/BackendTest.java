@@ -1,16 +1,10 @@
 package com.shareplaylearn.resources.test;
 
-import com.amazonaws.services.elasticache.model.SourceType;
 import com.google.gson.Gson;
-import com.shareplaylearn.StandaloneServer;
 import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.utilities.Exceptions;
-import junit.framework.TestCase;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -32,6 +26,7 @@ import static org.junit.Assert.assertTrue;
  */
 public class BackendTest{
 
+    public static final int TEST_PORT = 8081;
     /**
      *   First we post like the form in our site would to redirect to google:
      *
@@ -189,7 +184,7 @@ public class BackendTest{
         }
 
         int timeout = 10000;
-        int port = 8080;
+        int port = TEST_PORT;
 
         StandaloneServer standaloneServer = new StandaloneServer(port);
         Thread serverThread = new Thread(standaloneServer);

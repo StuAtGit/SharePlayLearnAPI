@@ -36,7 +36,6 @@ public class SharePlayLearnApi extends ResourceConfig {
             System.out.println("****Share,Play,Learn loading resources.****");
             String basePackage = "com.shareplaylearn.";
             packages(basePackage + "resources");
-            packages(basePackage + "websockets");
             register(org.glassfish.jersey.media.multipart.MultiPartFeature.class);
             register(org.glassfish.jersey.filter.LoggingFilter.class);
         } catch (Exception e) {

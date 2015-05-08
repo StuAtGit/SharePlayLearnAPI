@@ -57,7 +57,7 @@ public class StandaloneServer
         jettyServer.setHandler(handlers);
 
         jettyServer.setDumpAfterStart(true);
-        jettyServer.setDumpBeforeStop(true);
+//        jettyServer.setDumpBeforeStop(true);
 
         try {
             jettyServer.start();

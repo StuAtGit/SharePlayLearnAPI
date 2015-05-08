@@ -3,13 +3,12 @@
     <form action="/api/file/form" method="post" enctype="multipart/form-data">
         <!--<label for="upload_filename">Save file as:</label>-->
         <!--<input id="upload_filename" type="text" name="filename"/> <br/>-->
-        <table>
-            <label for="upload_file_select">Select File:</label>
-            <input id="upload_file_select" type="file" name="file"/><br/>
-            <input type="submit" value="Upload" id="file_submit"/> <br/>
-            <input type="hidden" name="user_id" value="{{user_id}}"/>
-            <input type="hidden" name="access_token" value="{{access_token}}"/>
-        </table>
+        <label for="upload_file_select">Select File:</label>
+        <input id="upload_file_select" type="file" name="file" class="upload-file-select"/><br/>
+        <label for="file_submit">Save File:</label>
+        <input type="submit" value="Upload" id="file_submit" class="file-submit-button"/> <br/>
+        <input type="hidden" name="user_id" value="{{user_id}}"/>
+        <input type="hidden" name="access_token" value="{{access_token}}"/>
     </form>
 </div>
 <div class="app-content" ng-if="!user_name">

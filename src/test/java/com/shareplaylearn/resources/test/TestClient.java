@@ -13,6 +13,9 @@ import javax.websocket.*;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * Created by stu on 5/5/15.
@@ -20,20 +23,12 @@ import java.net.URI;
 public class TestClient
     implements Runnable {
 
-    private String testHost = "localhost";
-    private int testPort = BackendTest.TEST_PORT;
-    private String accessToken;
-    private String testBaseUrl;
-    //I looked through the httpclient source code, and the finalizer does cleanup the connection pools
-    private static CloseableHttpClient httpClient = HttpClients.custom().build();
+    private BackendTest.LoginInfo loginInfo;
     private boolean testsPassed;
 
-    public TestClient( String host, int port, String accessToken ) {
-        this.testHost = host;
-        this.testPort = port;
+    public TestClient( String host, int port, BackendTest.LoginInfo loginInfo ) {
         this.testsPassed = false;
-        this.accessToken = accessToken;
-        testBaseUrl = "http://" + testHost + ":" + testPort + "/api";
+        this.loginInfo = loginInfo;
     }
 
     public boolean passed() {
@@ -41,9 +36,9 @@ public class TestClient
     }
 
     private void testStatusEndpoint() {
-        String testStatusUrl = testBaseUrl + "/status";
+        String testStatusUrl = BackendTest.TEST_BASE_URL + "/status";
         HttpGet statusGet = new HttpGet( testStatusUrl );
-        try( CloseableHttpResponse statusResponse = httpClient.execute(statusGet) ) {
+        try( CloseableHttpResponse statusResponse = BackendTest.httpClient.execute(statusGet) ) {
             if( statusResponse.getStatusLine().getStatusCode() != Response.Status.OK.getStatusCode() ) {
                 String errorMessage = "Status endpoint at: " + testStatusUrl + "  did not return OK";
                 if( statusResponse.getEntity() != null ) {
@@ -60,9 +55,6 @@ public class TestClient
         }
     }
 
-    private void testUploadFileEndpoint() {
-        //TODO: implement upload file test, using this.accessToken
-    }
 
     public static class GpioClient extends Endpoint {
 
@@ -85,8 +77,8 @@ public class TestClient
     }
 
     private void testGpioEndpoint() throws Exception {
-        String gpioEndpoint = this.testBaseUrl + "/gpio";
-        gpioEndpoint = "ws://localhost:"+ testPort +"/ws/gpio";
+        String gpioEndpoint = BackendTest.TEST_BASE_URL + "/gpio";
+        gpioEndpoint = "ws://localhost:"+ BackendTest.TEST_PORT +"/ws/gpio";
         gpioEndpoint = gpioEndpoint.replace("http", "ws");
         System.out.println("Websocket uri is: " + gpioEndpoint);
         ClientEndpointConfig clientEndpointConfig = ClientEndpointConfig.Builder.create().build();
@@ -96,13 +88,23 @@ public class TestClient
 
     @Override
     public void run() {
-        this.testStatusEndpoint();
-        this.testUploadFileEndpoint();
+        try {
+            this.testStatusEndpoint();
+            TestFileResource testFileResource = new TestFileResource(loginInfo.id,
+                    loginInfo.accessToken, BackendTest.httpClient);
+            testFileResource.testPost();
+            testFileResource.testGet();
+//        tomcat nor jetty seem to be recognizing the ServerEndpoint annotations - we're going with mqtt for now,
+//        but it might be interesting to make it work someday
 //        try {
 //            this.testGpioEndpoint();
 //        } catch (Exception e) {
 //            throw new RuntimeException(Exceptions.asString(e));
 //        }
+        }
+        catch( Throwable t ) {
+            throw new RuntimeException(Exceptions.asString(t));
+        }
         this.testsPassed = true;
     }
 }

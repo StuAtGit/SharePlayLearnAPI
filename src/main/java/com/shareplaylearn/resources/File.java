@@ -23,10 +23,11 @@ import java.util.List;
 /**
  * Created by stu on 4/14/15.
  */
-@Path("/file")
+@Path(File.RESOURCE_BASE)
 public class File {
 
     private static final String S3_BUCKET = "shareplaylearn";
+    public static final String RESOURCE_BASE = "/file";
     /**
      * With 2MB default upload limit on tomcat, this comes to about:
      * 1000*2MB ~ 2GB of data stored at any given time.
@@ -87,13 +88,13 @@ public class File {
     @POST
     @Path("/form")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public Response postFileForm( @NotNull @FormDataParam("file") InputStream filestream,
-                                  @NotNull @FormDataParam("file") FormDataContentDisposition contentDisposition,
+    public Response postFileForm( @FormDataParam("file") InputStream filestream,
+                                  @FormDataParam("file") FormDataContentDisposition contentDisposition,
                                   //we'll let this be optional, derive from the contentDisposition for now
                                   //and add this where we want/need to
                                   @FormDataParam("filename") String filename,
-                                  @NotNull @FormDataParam("user_id") String userId,
-                                  @NotNull @FormDataParam("access_token") String accessToken )
+                                  @FormDataParam("user_id") String userId,
+                                  @FormDataParam("access_token") String accessToken )
     {
         try {
             //these still show up as null, despite annotations
@@ -138,9 +139,12 @@ public class File {
             ObjectMetadata fileMetadata = new ObjectMetadata();
             fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
             fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
-            fileMetadata.setContentLength(contentDisposition.getSize());
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, filestream, new ObjectMetadata());
-            return Response.status(Response.Status.CREATED).entity(filename + " stored").build();
+            //amazon bitches if you don't supply this,
+            //yet it throws 501/not implemented due to supplied header if you do
+            //morons.
+            ///fileMetadata.setContentLength(contentDisposition.getSize());
+            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, filestream, fileMetadata);
+            return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
         }
         catch( RuntimeException r )
         {
@@ -173,9 +177,12 @@ public class File {
             byte[] buffer = new byte[bufferSize];
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             int bytesRead = 0;
+            int totalBytesRead = 0;
             while( (bytesRead = inputStream.read(buffer)) > 0 ) {
                 outputStream.write(buffer,0,bytesRead);
+                totalBytesRead += bytesRead;
             }
+            System.out.println("GET in file resource read: " + totalBytesRead + " bytes.");
             return Response.status(Response.Status.OK).entity(outputStream.toByteArray()).build();
         } catch (IOException e) {
             StringWriter sw = new StringWriter();
@@ -222,8 +229,6 @@ public class File {
         }
     }
 
-    //TODO: get file listing, async forms, and file retrieval working
-    //AND THEN WE NEED SOME UNIT TESTS!!!!!
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/{userId}/filelist")

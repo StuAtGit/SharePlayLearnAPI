@@ -14,12 +14,27 @@ p {
     margin: 1em 0;
 }
 
+label {
+    margin-right:0.5em;
+    margin-top:0.5em;
+}
+
 #wrap {
     float: left;
     /*width: 500px;*/
     font-size: 1.2em;
     /*margin: 3em auto;*/
     margin-left: 4em;
+}
+
+.upload-file-select {
+    float: right;
+    margin-top: 0.5em;
+}
+
+.file-submit-button {
+    float:right;
+    margin-top:0.7em;
 }
 
 .header {

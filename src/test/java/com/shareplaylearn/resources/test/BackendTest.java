@@ -3,6 +3,7 @@ package com.shareplaylearn.resources.test;
 import com.google.gson.Gson;
 import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.utilities.Exceptions;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.jsoup.Connection;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,7 +28,12 @@ import static org.junit.Assert.assertTrue;
  */
 public class BackendTest{
 
+    public static String TEST_HOST = "localhost";
     public static final int TEST_PORT = 8081;
+    public static final String TEST_BASE_URL = "http://" + TEST_HOST + ":" + TEST_PORT + "/api";
+    //I looked through the httpclient source code, and the finalizer does cleanup the connection pools
+    public static CloseableHttpClient httpClient = HttpClients.custom().build();
+
     /**
      *   First we post like the form in our site would to redirect to google:
      *
@@ -76,11 +83,27 @@ public class BackendTest{
             access token out of the redirect to the live site.
 
      */
+    public static class OauthJwt {
+        public String iss;
+        public String sub;
+        public String azp;
+        public String email;
+        public String at_hash;
+        public String email_verified;
+        public String aud;
+        public String iat;
+        public String exp;
+    }
+
     public static class LoginInfo {
         public String accessToken;
         public String expiry;
         public String idToken;
+        public OauthJwt idTokenBody;
+        public String id;
     }
+
+
 
     public LoginInfo getLoginInfo() throws URISyntaxException, IOException {
         CloseableHttpClient httpClient = HttpClients.custom().build();
@@ -160,6 +183,13 @@ public class BackendTest{
 
         assertNotNull(loginInfo.accessToken);
         assertNotNull(loginInfo.idToken);
+        String[] idTokenFields = loginInfo.idToken.split("\\.");
+        if(idTokenFields.length < 3){
+            throw new RuntimeException("Error parsing id token " + loginInfo.idToken + "\n" + "it only had " + idTokenFields.length + " field!");
+        }
+        String jwtBody = new String(Base64.decodeBase64(idTokenFields[1]), StandardCharsets.UTF_8);
+        loginInfo.idTokenBody = new Gson().fromJson(jwtBody,OauthJwt.class);
+        loginInfo.id = loginInfo.idTokenBody.sub;
         return loginInfo;
         /**
         Document oauthPostResponse = postResponse.parse();
@@ -169,18 +199,20 @@ public class BackendTest{
     }
 
     @Test
-    public void TestFileResource() throws Exception {
+    public void RunBackendTests() throws Exception {
 
         //TODO: first test - implement Standalone server, and post a file to the File resource
         //TODO: then we can start on file listings, etc (with unit tests)
+        LoginInfo loginInfo;
         try {
-            LoginInfo loginInfo = getLoginInfo();
+            loginInfo = getLoginInfo();
             Gson gson = new Gson();
             System.out.println(gson.toJson(loginInfo));
         } catch (SocketTimeoutException e ) {
             e.printStackTrace();
             System.out.println("failed to connect to oauth provider " + e.getMessage());
-            //assertTrue( false );
+            assertTrue( false );
+            throw e;
         }
 
         int timeout = 10000;
@@ -192,7 +224,7 @@ public class BackendTest{
         Thread.sleep(1000);
 
         try {
-            TestClient testClient = new TestClient("localhost", port, getLoginInfo().accessToken);
+            TestClient testClient = new TestClient("localhost", port, loginInfo);
             Thread clientThread = new Thread(testClient);
             clientThread.start();
             clientThread.join();

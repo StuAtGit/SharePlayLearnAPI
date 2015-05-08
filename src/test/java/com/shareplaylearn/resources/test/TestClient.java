@@ -63,6 +63,7 @@ public class TestClient
                     loginInfo.accessToken, BackendTest.httpClient);
             testFileResource.testPost();
             testFileResource.testGet();
+            testFileResource.testGetPathAuthorization();
             testFileResource.testGetFileList();
         }
         catch( Throwable t ) {

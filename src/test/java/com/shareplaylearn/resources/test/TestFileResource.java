@@ -69,40 +69,55 @@ public class TestFileResource {
         }
     }
 
+    public void testGetGeneric( String fileResource, byte[] testFileBuffer,
+                                boolean addHeader ) throws IOException {
+        HttpGet fileGet = new HttpGet(fileResource);
+        if( addHeader ) {
+            fileGet.addHeader("Authorization", "Bearer " + this.accessToken);
+        }
+        try( CloseableHttpResponse response = (CloseableHttpResponse) httpClient.execute(fileGet)) {
+            int code = response.getStatusLine().getStatusCode();
+            String reason = response.getStatusLine().getReasonPhrase();
+            byte[] entity = null;
+            if (response.getEntity() != null) {
+                entity = EntityUtils.toByteArray(response.getEntity());
+            }
+            if (code != Response.Status.OK.getStatusCode()) {
+                String message = "Get from file resource: " + fileResource + " failed ";
+                message += code + "/" + reason;
+                if (entity != null) {
+                    message += new String(entity, StandardCharsets.UTF_8);
+                }
+                throw new RuntimeException(message);
+            }
+
+            if (!Arrays.equals(entity, testFileBuffer)) {
+                String message = "File resource: " + fileResource + " did not have matching bytes!";
+                if (entity == null) {
+                    message += " entity was null!?";
+                } else {
+                    message += " returned buffer  was: " + new String(entity, StandardCharsets.UTF_8);
+                }
+                throw new RuntimeException(message);
+            }
+            System.out.println("Successfully retrieved the test file - and the bytes matched! :)");
+        }
+    }
+
     public void testGet() throws IOException {
         Path uploadTest = FileSystems.getDefault().getPath(TEST_UPLOAD_FILE_PATH);
         byte[] testFileBuffer = Files.readAllBytes(uploadTest);
         String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE
                 + "/" + this.userId + "/" + TEST_UPLOAD_FILE_NAME;
-        HttpGet fileGet = new HttpGet(fileResource);
-        fileGet.addHeader("Authorization", "Bearer " + this.accessToken);
-        try( CloseableHttpResponse response = (CloseableHttpResponse) httpClient.execute(fileGet)) {
-            int code = response.getStatusLine().getStatusCode();
-            String reason = response.getStatusLine().getReasonPhrase();
-            byte[] entity = null;
-            if( response.getEntity() != null ) {
-                entity = EntityUtils.toByteArray(response.getEntity());
-            }
-            if( code != Response.Status.OK.getStatusCode() ) {
-                String message = "Get from file resource: " + fileResource + " failed ";
-                message += code + "/" + reason;
-                if( entity != null ) {
-                    message += new String( entity, StandardCharsets.UTF_8 );
-                }
-                throw new RuntimeException(message);
-            }
+        testGetGeneric(fileResource, testFileBuffer, true);
+    }
 
-            if( !Arrays.equals(entity, testFileBuffer) ) {
-                String message = "File resource: " + fileResource + " did not have matching bytes!";
-                if( entity == null ) {
-                    message += " entity was null!?";
-                } else {
-                    message += " returned buffer  was: " + new String(entity, StandardCharsets.UTF_8);
-                }
-                throw new RuntimeException( message );
-            }
-            System.out.println( "Successfully retrieved the test file - and the bytes matched! :)");
-        }
+    public void testGetPathAuthorization() throws IOException {
+        Path uploadTest = FileSystems.getDefault().getPath(TEST_UPLOAD_FILE_PATH);
+        byte[] testFileBuffer = Files.readAllBytes(uploadTest);
+        String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE
+                + "/" + this.userId + "/" + TEST_UPLOAD_FILE_NAME + "/" + this.accessToken;
+        testGetGeneric(fileResource, testFileBuffer, false);
     }
 
     public void testGetFileList() throws IOException {

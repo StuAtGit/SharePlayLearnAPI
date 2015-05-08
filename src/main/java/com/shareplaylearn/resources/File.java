@@ -192,22 +192,30 @@ public class File {
         }
     }
 
-    @GET
-    @Produces( MediaType.APPLICATION_OCTET_STREAM )
-    @Path("/{userId}/{filename}")
-    public Response getFile( @NotNull @PathParam("userId") String userId,
-                             @NotNull @PathParam("filename") String filename,
-                             @HeaderParam("Authorization") String access_token)
+    /**
+     * Factored out this functionality so we can support access token in header, and in URL
+     * @param userId
+     * @param filename
+     * @param access_token
+     * @return
+     */
+    public Response getFileGeneric( String userId, String filename, String access_token )
     {
+        if( userId == null || userId.trim().length() == 0  ) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("No user id").build();
+        }
+        if( filename == null || filename.trim().length() == 0  ) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("No file id given").build();
+        }
         String itemPath = "/" + userId + "/" + filename;
         /**
          * Actually, don't need this for now, as java Path annotation won't let anything go too screwy
          * Eventually, we should regex the filename, though to allow / hiearchies (perhaps)
-        try {
-            URI userBucketPath = new URI(null,null,filename,null);
-        } catch (URISyntaxException e) {
+         try {
+         URI userBucketPath = new URI(null,null,filename,null);
+         } catch (URISyntaxException e) {
 
-        **/
+         **/
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
@@ -227,6 +235,35 @@ public class File {
             }
             return tokenResponse;
         }
+    }
+
+    @GET
+    @Produces( MediaType.APPLICATION_OCTET_STREAM )
+    @Path("/{userId}/{filename}")
+    public Response getFile( @PathParam("userId") String userId,
+                             @PathParam("filename") String filename,
+                             @HeaderParam("Authorization") String access_token)
+    {
+        return getFileGeneric(userId, filename, access_token );
+    }
+
+    /***
+     * Might want to yank this back later (don't really want to encourage ppl to share their access token!!)
+     * OTOH, we might want to look into a limited scope token that just works for this. Handy for sharing,
+     * and will make the links expire.
+     * @param userId
+     * @param filename
+     * @param access_token
+     * @return
+     */
+    @GET
+    @Produces( MediaType.APPLICATION_OCTET_STREAM )
+    @Path("/{userId}/{filename}/{access_token}")
+    public Response getFilePathAuthorization( @PathParam("userId") String userId,
+                                              @PathParam("filename") String filename,
+                                              @PathParam("access_token") String access_token)
+    {
+        return getFileGeneric(userId, filename, access_token );
     }
 
     @GET

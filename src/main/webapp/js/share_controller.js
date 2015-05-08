@@ -51,7 +51,7 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http',
                    }
                 }).success(
                     function( data, status, headers, config, statusText ) {
-                        $scope.itemlist = JSON.parse(data);
+                        $scope.itemlist = data;
                     }
                 ).error(
                     function( data, status, headers, config, statusText ) {
@@ -63,6 +63,19 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http',
     }
 ])
 
+shareAppControllers.controller("LogoutCtrl", ['$scope', '$routeParams',
+    function( $scope ) {
+        window.sessionStorage.removeItem('user_id');
+        window.sessionStorage.removeItem('access_token');
+        window.sessionStorage.removeItem('auth_code');
+        window.sessionStorage.removeItem('user_email');
+        window.sessionStorage.removeItem('user_name');
+
+        document.getElementById("login-control").style.display = "block";
+        document.getElementById("logout-control").style.display = "none";
+
+    }
+])
 
 /**
  * 
@@ -124,13 +137,16 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams',
                 $scope.user_info.user_name = payload.email.split('@')[0];
                 $scope.user_info.user_id = payload.sub;
                 
-                window.sessionStorage.setItem("id_token", $scope.user_info.id_token);
-                window.sessionStorage.setItem("id_token_header", header);
-                window.sessionStorage.setItem("id_token_payload", payload);
+                //window.sessionStorage.setItem("id_token", $scope.user_info.id_token);
+                //window.sessionStorage.setItem("id_token_header", header);
+                //window.sessionStorage.setItem("id_token_payload", payload);
                 window.sessionStorage.setItem("user_id", payload.sub);
                 window.sessionStorage.setItem("user_email", payload.email);
                 window.sessionStorage.setItem("user_name",$scope.user_info.user_name)
-                window.sessionStorage.setItem("id_token_signature", signature);
+                //window.sessionStorage.setItem("id_token_signature", signature);
+
+                document.getElementById("login-control").style.display = "none";
+                document.getElementById("logout-control").style.display = "block";
             }
         }
         else {

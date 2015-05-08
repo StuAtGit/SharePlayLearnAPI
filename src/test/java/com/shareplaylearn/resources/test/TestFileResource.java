@@ -1,5 +1,6 @@
 package com.shareplaylearn.resources.test;
 
+import com.google.gson.Gson;
 import com.shareplaylearn.resources.File;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.HttpClient;
@@ -22,6 +23,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by stu on 5/7/15.
@@ -100,6 +102,31 @@ public class TestFileResource {
                 throw new RuntimeException( message );
             }
             System.out.println( "Successfully retrieved the test file - and the bytes matched! :)");
+        }
+    }
+
+    public void testGetFileList() throws IOException {
+        String filelistResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + "/" + this.userId + "/filelist";
+        HttpGet filelistGet = new HttpGet(filelistResource);
+        filelistGet.addHeader("Authorization", "Bearer " + this.accessToken);
+        try( CloseableHttpResponse response = (CloseableHttpResponse) httpClient.execute(filelistGet)) {
+            int code = response.getStatusLine().getStatusCode();
+            String reason = response.getStatusLine().getReasonPhrase();
+            String entity = "";
+            if( response.getEntity() != null ) {
+                entity += EntityUtils.toString(response.getEntity());
+            }
+            if( code != Response.Status.OK.getStatusCode() ) {
+                throw new RuntimeException("Error retrieving file list for user: " + this.userId + " " +
+                                            code + "/" + reason + " " + entity );
+            }
+            String[] filelist = new Gson().fromJson(entity, String[].class);
+            Arrays.sort(filelist);
+            if( Arrays.binarySearch(filelist, TestFileResource.TEST_UPLOAD_FILE_NAME) < 0 ) {
+                throw new RuntimeException("Error: file list " + entity + " did not contain test filename " +
+                        TEST_UPLOAD_FILE_NAME );
+            }
+            System.out.println("Successfully retrieved file list: " + entity);
         }
     }
 }

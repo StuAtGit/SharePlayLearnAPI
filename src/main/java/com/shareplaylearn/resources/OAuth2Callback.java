@@ -93,6 +93,9 @@ public class OAuth2Callback {
     }
 
     public static Response validateToken( String accessToken ) {
+        if( accessToken == null ) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Access token was null.").build();
+        }
         accessToken = accessToken.trim();
         //allow for access tokens passed directly from header into this method
         //(that still have the Bearer prefix)

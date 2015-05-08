@@ -232,9 +232,15 @@ public class File {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/{userId}/filelist")
-    public Response getFileList( @NotNull @PathParam("userId") String userId,
-                                 @NotNull @HeaderParam("Authorization") String authorization )
+    public Response getFileList( @PathParam("userId") String userId,
+                                 @HeaderParam("Authorization") String authorization )
     {
+        if( userId == null ) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("No user id provided??").build();
+        }
+        if( authorization == null ) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("No user id provided??").build();
+        }
         Response authResponse = OAuth2Callback.validateToken(authorization);
         if( authResponse.getStatus() != Response.Status.OK.getStatusCode() ) {
             return authResponse;
@@ -246,8 +252,12 @@ public class File {
         Gson gson = new Gson();
         List<String> objectNames = new ArrayList<>();
         List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
+        int prefixLength = ("/" + userId + "/").length();
         for( S3ObjectSummary objectSummary : objectSummaries ) {
-            objectNames.add( objectSummary.getKey() );
+            if( objectSummary.getKey().length() <= prefixLength ) {
+                continue;
+            }
+            objectNames.add( objectSummary.getKey().substring( prefixLength ) );
         }
         return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();
     }

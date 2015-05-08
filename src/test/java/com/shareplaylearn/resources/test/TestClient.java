@@ -94,6 +94,7 @@ public class TestClient
                     loginInfo.accessToken, BackendTest.httpClient);
             testFileResource.testPost();
             testFileResource.testGet();
+            testFileResource.testGetFileList();
 //        tomcat nor jetty seem to be recognizing the ServerEndpoint annotations - we're going with mqtt for now,
 //        but it might be interesting to make it work someday
 //        try {

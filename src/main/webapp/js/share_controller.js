@@ -31,12 +31,35 @@ shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
 ])
 
 
-shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$routeParams',
-    function( $scope ) {
+shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http',
+    function( $scope, $http ) {
         document.getElementById("legacy-duck-game").style.display = "none";
         $scope.user_name = window.sessionStorage.getItem("user_name");
         $scope.user_id = window.sessionStorage.getItem("user_id");
         $scope.access_token = window.sessionStorage.getItem("access_token");
+
+        $scope.itemlist = [];
+
+        if( $scope.access_token != null &&
+            $scope.access_token != undefined &&
+            $scope.user_id != null &&
+            $scope.user_id != undefined )
+        {
+            $http.get("api/file/" + $scope.user_id + "/filelist",
+                { headers:
+                   {'Authorization':'Bearer ' + $scope.access_token
+                   }
+                }).success(
+                    function( data, status, headers, config, statusText ) {
+                        $scope.itemlist = JSON.parse(data);
+                    }
+                ).error(
+                    function( data, status, headers, config, statusText ) {
+                        alert( status + " " + statusText );
+                        alert( data );
+                    }
+                )
+        }
     }
 ])
 

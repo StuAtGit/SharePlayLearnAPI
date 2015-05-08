@@ -17,10 +17,6 @@ and open the template in the editor.
         <script language="javascript" type="text/javascript" src="js/share_app.js"></script>
         <script language="javascript" type="text/javascript" src="js/share_controller.js"></script>
         <script language="javascript" type="text/javascript" src="js/jsjws/jws-2.0.js"></script>
-        <!--script language="javascript" type="text/javascript" src="js/bower_components/angular.js"></script-->
-        <script src="js/bower_components/angular-strap/dist/angular-strap.min.js"></script>
-        <script src="js/bower_components/angular-strap/dist/angular-strap.tpl.min.js"></script>
-
         <script type="application/javascript" src="js/c3dl/c3dapi.js" ></script>
         <script type="text/javascript" src="js/jiglib/jiglib.js"></script>
 
@@ -102,6 +98,7 @@ and open the template in the editor.
             
         </div>
         <div id="wrap">
+            <!-- doesn't play with with angular's model - expects to be loaded pre(DOM)-render -->
             <div id="legacy-duck-game" class="app-content">
                 <canvas id="simpleGame1" width="400" height="300">
                 </canvas>

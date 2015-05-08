@@ -1,6 +1,5 @@
 package com.shareplaylearn.resources.test;
 
-import com.shareplaylearn.GpioController;
 import com.shareplaylearn.SharePlayLearnApi;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
@@ -44,15 +43,15 @@ public class StandaloneServer
     public void run() {
         this.jettyServer = new Server(this.port);
         ServletContextHandler jerseyHandler = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
-        WebSocketHandler webSocketHandler = new WebSocketHandler.Simple(GpioController.class);
+        //WebSocketHandler webSocketHandler = new WebSocketHandler.Simple(GpioController.class);
 
         ServletHolder servletHolder = new ServletHolder(new ServletContainer(new SharePlayLearnApi()));
         jerseyHandler.addServlet(servletHolder, "/api/*");
-        ContextHandler webSocketContext = new ContextHandler(webSocketHandler, "/ws/*");
+        //ContextHandler webSocketContext = new ContextHandler(webSocketHandler, "/ws/*");
 
         HandlerList handlers = new HandlerList();
         handlers.addHandler(jerseyHandler);
-        handlers.addHandler(webSocketContext);
+        //handlers.addHandler(webSocketContext);
         
         jettyServer.setHandler(handlers);
 

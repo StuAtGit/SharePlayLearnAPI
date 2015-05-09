@@ -1,4 +1,4 @@
-package com.shareplaylearn.resources.test;
+package com.shareplaylearn.utilities;
 
 import com.google.gson.Gson;
 import com.shareplaylearn.services.SecretsService;
@@ -94,10 +94,21 @@ public class OauthPasswordFlow {
     }
 
 
+    public static class AuthorizationException extends Exception {
+        public AuthorizationException( String message ) {
+            super( message );
+        }
+    }
+
+    public static class UnauthorizedException extends Exception {
+        public UnauthorizedException( String message ) {
+            super( message );
+        }
+    }
 
     public static LoginInfo googleLogin(String username, String password,
                                         String clientId, String callbackUri)
-            throws URISyntaxException, IOException {
+            throws URISyntaxException, IOException, AuthorizationException, UnauthorizedException {
 
         CloseableHttpClient httpClient = HttpClients.custom().build();
         String oAuthQuery = "client_id=" + clientId + "&";
@@ -108,9 +119,12 @@ public class OauthPasswordFlow {
         Connection oauthGetCoonnection = Jsoup.connect(oAuthUrl.toString());
         Connection.Response oauthResponse = oauthGetCoonnection.method(Connection.Method.GET).execute();
         if( oauthResponse.statusCode() != 200 ) {
-            System.out.println( "Failed contact Google's oauth endpoint, status code: " + oauthResponse.statusCode() );
-            System.out.println( "Reason: " + oauthResponse.statusMessage() );
-            assertTrue( false );
+            String errorMessage = "Error contacting Google's oauth endpoint: "
+                    + oauthResponse.statusCode() + " / " + oauthResponse.statusMessage();
+            if( oauthResponse.body() != null ) {
+                errorMessage += oauthResponse.body();
+            }
+            throw new AuthorizationException( errorMessage );
         }
         Map<String,String> oauthCookies = oauthResponse.cookies();
         Document oauthPage = oauthResponse.parse();
@@ -151,9 +165,12 @@ public class OauthPasswordFlow {
         }
         Connection.Response postResponse = oauthPostConnection.method(Connection.Method.POST).timeout(5000).execute();
         if( postResponse.statusCode() != 200 ) {
-            System.out.println("Failed to validate credentials with google: " + postResponse.statusCode());
-            System.out.println(postResponse.statusMessage());
-            assertTrue(false);
+            String errorMessage = "Failed to validate credentials: "
+                    + oauthResponse.statusCode() + " / " + oauthResponse.statusMessage();
+            if( oauthResponse.body() != null ) {
+                errorMessage += oauthResponse.body();
+            }
+            throw new UnauthorizedException( errorMessage );
         }
         System.out.println("Response headers (after post to google form & following redirect):");
         for( Map.Entry<String,String> header : postResponse.headers().entrySet() ) {
@@ -178,7 +195,7 @@ public class OauthPasswordFlow {
         assertNotNull(loginInfo.idToken);
         String[] idTokenFields = loginInfo.idToken.split("\\.");
         if(idTokenFields.length < 3){
-            throw new RuntimeException("Error parsing id token " + loginInfo.idToken + "\n" + "it only had " + idTokenFields.length + " field!");
+            throw new AuthorizationException("Error parsing id token " + loginInfo.idToken + "\n" + "it only had " + idTokenFields.length + " field!");
         }
         String jwtBody = new String(Base64.decodeBase64(idTokenFields[1]), StandardCharsets.UTF_8);
         loginInfo.idTokenBody = new Gson().fromJson(jwtBody,OauthJwt.class);

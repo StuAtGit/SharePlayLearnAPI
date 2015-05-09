@@ -1,21 +1,15 @@
 package com.shareplaylearn.resources.test;
 
+import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.utilities.Exceptions;
+import com.shareplaylearn.utilities.OauthPasswordFlow;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.glassfish.tyrus.client.ClientManager;
 
-import javax.websocket.*;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
-import java.net.URI;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * Created by stu on 5/5/15.
@@ -23,12 +17,10 @@ import java.nio.file.Path;
 public class TestClient
     implements Runnable {
 
-    private OauthPasswordFlow.LoginInfo loginInfo;
     private boolean testsPassed;
 
-    public TestClient( String host, int port, OauthPasswordFlow.LoginInfo loginInfo ) {
+    public TestClient( String host, int port ) {
         this.testsPassed = false;
-        this.loginInfo = loginInfo;
     }
 
     public boolean passed() {
@@ -59,7 +51,10 @@ public class TestClient
     public void run() {
         try {
             this.testStatusEndpoint();
-            TestFileResource testFileResource = new TestFileResource(loginInfo.id,
+            AccessTokenTest accessTokenTest = new AccessTokenTest(SecretsService.testOauthUsername,
+                    SecretsService.testOauthPassword);
+            OauthPasswordFlow.LoginInfo loginInfo = accessTokenTest.testPost();
+            FileResourceTest testFileResource = new FileResourceTest(loginInfo.id,
                     loginInfo.accessToken, BackendTest.httpClient);
             testFileResource.testPost();
             testFileResource.testGet();

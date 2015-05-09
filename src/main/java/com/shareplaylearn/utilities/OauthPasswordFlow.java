@@ -157,6 +157,10 @@ public class OauthPasswordFlow {
         //oauthPostConnection.followRedirects(false);
         System.out.println("form post params were: ");
         for( Map.Entry<String,String> kvp : formParams.entrySet() ) {
+            //DO NOT let passwords end up in the logs ;)
+            if( kvp.getKey().equals("Passwd") ){
+                continue;
+            }
             System.out.println( kvp.getKey() + "," + kvp.getValue() );
         }
         System.out.println("form cookies were: ");
@@ -191,8 +195,16 @@ public class OauthPasswordFlow {
             }
         }
 
-        assertNotNull(loginInfo.accessToken);
-        assertNotNull(loginInfo.idToken);
+        //Google doesn't actually throw a 401 or anything - it just doesn't redirect
+        //and sends you back to it's login page to try again.
+        //So this is what happens with an invalid password.
+        if( loginInfo.accessToken == null ||
+                loginInfo.idToken == null ) {
+            //Document oauthPostResponse = postResponse.parse();
+            //System.out.println("*** Oauth response from google *** ");
+            //System.out.println(oauthPostResponse.toString());
+            throw new UnauthorizedException("Error retrieving authorization: did you use the correct username/password?");
+        }
         String[] idTokenFields = loginInfo.idToken.split("\\.");
         if(idTokenFields.length < 3){
             throw new AuthorizationException("Error parsing id token " + loginInfo.idToken + "\n" + "it only had " + idTokenFields.length + " field!");
@@ -201,10 +213,5 @@ public class OauthPasswordFlow {
         loginInfo.idTokenBody = new Gson().fromJson(jwtBody,OauthJwt.class);
         loginInfo.id = loginInfo.idTokenBody.sub;
         return loginInfo;
-        /**
-         Document oauthPostResponse = postResponse.parse();
-         System.out.println("*** Oauth response from google *** ");
-         System.out.println(oauthPostResponse.toString());
-         **/
     }
 }

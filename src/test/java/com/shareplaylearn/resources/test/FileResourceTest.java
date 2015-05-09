@@ -110,7 +110,7 @@ public class FileResourceTest {
         Path uploadTest = FileSystems.getDefault().getPath(TEST_UPLOAD_FILE_PATH);
         byte[] testFileBuffer = Files.readAllBytes(uploadTest);
         String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE
-                + "/" + this.userId + "/" + TEST_UPLOAD_FILE_NAME + "/" + this.accessToken;
+                + "/" + this.userId + "/" + this.accessToken + "/" + TEST_UPLOAD_FILE_NAME;
         testGetGeneric(fileResource, testFileBuffer, false);
     }
 

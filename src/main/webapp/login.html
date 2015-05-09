@@ -2,7 +2,9 @@
 Angular template for the login page
 -->
 <div class="app-content">
-    <form method="GET" action="https://accounts.google.com/o/oauth2/auth" >
+
+    Login via Google:
+    <form method="GET" action="https://accounts.google.com/o/oauth2/auth">
         <input type="hidden" name="client_id" value="726837865357-tqs20u6luqc9oav1bp3vb8ndgavjnrkf.apps.googleusercontent.com"/>
         <input type="hidden" name="response_type" value="code"/>
         <input type="hidden" name="scope" value="openid email"/>
@@ -12,4 +14,15 @@ Angular template for the login page
         <input type="hidden" name="state" value="insecure_test_token"/>
         <input type="submit" value="Log in with Google"/>
     </form>
+    <br/>
+    <hr width="100%" size="0.3em">
+    Login with Google credentials via this site (less secure):
+    <form name="OauthPasswordFlowLogin" ng-submit="submitLogin(credentials)" novalidate>
+        <label for="gmail_email">Gmail email</label>
+        <input id="gmail_email" type="text" ng-model="credentials.username" required /><br/>
+        <label for="gmail_password">Gmail password</label>
+        <input id="gmail_password" type="text" ng-model="credentials.password" required /><br/>
+        <button type="submit" ng-disabled="OauthPasswordFlowLogin.$invalid">Login</button>
+    </form>
+
 </div>

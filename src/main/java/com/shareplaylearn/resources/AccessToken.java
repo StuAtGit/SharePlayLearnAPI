@@ -27,7 +27,7 @@ public class AccessToken {
             return Response.status(Response.Status.BAD_REQUEST).entity("No credentials provided.").build();
         }
         //TODO: fuzz this to see what happens with bad strings
-        byte[] decodedCredentials = Base64.decodeBase64(credentials);
+        byte[] decodedCredentials = Base64.decodeBase64(credentials.trim());
         if( decodedCredentials == null ) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid credentials provided.").build();
         }

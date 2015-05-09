@@ -251,6 +251,9 @@ public class File {
      * Might want to yank this back later (don't really want to encourage ppl to share their access token!!)
      * OTOH, we might want to look into a limited scope token that just works for this. Handy for sharing,
      * and will make the links expire.
+     *
+     * Note: we flip the order of access_token & filename so the browser will save the file with the logical
+     * name
      * @param userId
      * @param filename
      * @param access_token
@@ -258,7 +261,7 @@ public class File {
      */
     @GET
     @Produces( MediaType.APPLICATION_OCTET_STREAM )
-    @Path("/{userId}/{filename}/{access_token}")
+    @Path("/{userId}/{access_token}/{filename}")
     public Response getFilePathAuthorization( @PathParam("userId") String userId,
                                               @PathParam("filename") String filename,
                                               @PathParam("access_token") String access_token)

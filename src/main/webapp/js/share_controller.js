@@ -55,8 +55,14 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http',
                     }
                 ).error(
                     function( data, status, headers, config, statusText ) {
-                        alert( status + " " + statusText );
-                        alert( data );
+                        if( status == 401 ) {
+                            alert( "Not authorized to access your files? Did something go wrong with the login?" +
+                            JSON.stringify(data) );
+                        }
+                        else if( status != 400 ) {
+                            alert(status + " " + statusText);
+                            alert(data);
+                        }
                     }
                 )
         }
@@ -87,11 +93,68 @@ function base64urlDecode(str) {
   return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
 };
 
-shareAppControllers.controller("LoginCtrl",['$scope','$routeParams',
-    function( $scope, $routeParams ) {
+shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
+    function( $scope, $http, $routeParams ) {
+        //TODO: Check if we already have a token & user info in session storage,
+        //TODO: if so, ping the endpoint to validate token.
+        //TODO: if it's still valid, just swap Login with Logout
+        //TODO: ALso, need an ng-if in Login template as well
+
         document.getElementById("legacy-duck-game").style.display = "none";
         $scope.user_info = {};
+        $scope.credentials = {};
 
+        $scope.submitLogin = function(credentials) {
+            $http.post("api/access_token", null,
+                 {
+                    headers: {
+                        'Authorization': btoa($scope.credentials.username + ":" + $scope.credentials.password)
+                    }
+                }
+                /*
+                 public static class OauthJwt {
+                 public String iss;
+                 public String sub;
+                 public String azp;
+                 public String email;
+                 public String at_hash;
+                 public String email_verified;
+                 public String aud;
+                 public String iat;
+                 public String exp;
+                 }
+
+                 public static class LoginInfo {
+                 public String accessToken;
+                 public String expiry;
+                 public String idToken;
+                 public OauthJwt idTokenBody;
+                 public String id;
+                 }
+                 */
+            ).success( function( data, status, headers, config ) {
+
+                    //TODO: pull setting/clearing session storage & login controls into function
+                    $scope.user_info.access_token = data.accessToken;
+                    $scope.user_info.user_id = data.idTokenBody.sub;
+                    $scope.user_info.user_email = data.idTokenBody.email;
+                    $scope.user_info.user_name = data.idTokenBody.email.split('@')[0];
+                    $scope.user_info.token_expiration = data.expiry;
+
+                    window.sessionStorage.setItem("access_token", $scope.user_info.access_token);
+                    window.sessionStorage.setItem("expires_in", $scope.user_info.token_expiration);
+                    window.sessionStorage.setItem("user_id", data.idTokenBody.sub);
+                    window.sessionStorage.setItem("user_email", $scope.user_info.user_email);
+                    window.sessionStorage.setItem("user_name",$scope.user_info.user_name)
+
+
+                    document.getElementById("login-control").style.display = "none";
+                    document.getElementById("logout-control").style.display = "block";
+
+                }).error( function( data, status, headers, config ) {
+                    alert( status + " " + data );
+                })
+        }
         /**
          * Sample User token (see jwt):
          * eyJhbGciOiJSUzI1NiIsImtpZCI6IjljNjMxNDFjMzAzNjkyY2E3Y2Q4MDAxZTUxNmNhNDVhZDdlNTJiZTIifQ.
@@ -148,11 +211,6 @@ shareAppControllers.controller("LoginCtrl",['$scope','$routeParams',
                 document.getElementById("login-control").style.display = "none";
                 document.getElementById("logout-control").style.display = "block";
             }
-        }
-        else {
-            //TODO: try to retrieve user_id, user email, and token from session storage, and validate it
-            //if it's all there and valid, you're still logged in.
-            //need some kind of marker in the model that you're logged in, and token is confirmed.
         }
     }
 ])

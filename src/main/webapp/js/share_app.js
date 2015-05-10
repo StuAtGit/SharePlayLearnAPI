@@ -21,7 +21,7 @@ shareApp.config(
                     templateUrl: "play.html",
                     controller: "PlayCtrl"
                  }).when( '/logout', {
-                     templateUrl: "login.html",
+                     templateUrl: "logout.html",
                      controller: "LogoutCtrl"
                  }).otherwise( {
                          redirectTo: "/share"

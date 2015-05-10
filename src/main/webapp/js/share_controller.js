@@ -2,6 +2,7 @@ var shareAppControllers = angular.module('shareAppControllers',[]);
 
 shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http', 
     function( $scope, $http ) {
+        checkLoginStatus($scope, document);
         document.getElementById("legacy-duck-game").style.display = "none";
         $http.get("test_data/share_sample.json").success( function(data) {
             $scope.share_data = data;
@@ -11,6 +12,7 @@ shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http',
 
 shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
     function( $scope, $routeParams ) {
+        checkLoginStatus($scope, document);
         //the duck game is just not that fit for any mobile right now :/
         if(  !(new shareplaylearn.Utils()).isMobile() ) {
             document.getElementById("legacy-duck-game").style.display = "block";
@@ -33,21 +35,19 @@ shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
 
 shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http',
     function( $scope, $http ) {
+        checkLoginStatus($scope, document);
         document.getElementById("legacy-duck-game").style.display = "none";
-        $scope.user_name = window.sessionStorage.getItem("user_name");
-        $scope.user_id = window.sessionStorage.getItem("user_id");
-        $scope.access_token = window.sessionStorage.getItem("access_token");
 
         $scope.itemlist = [];
 
-        if( $scope.access_token != null &&
-            $scope.access_token != undefined &&
-            $scope.user_id != null &&
-            $scope.user_id != undefined )
+        if( $scope.user_info.access_token != null &&
+            $scope.user_info.access_token != undefined &&
+            $scope.user_info.user_id != null &&
+            $scope.user_info.user_id != undefined )
         {
-            $http.get("api/file/" + $scope.user_id + "/filelist",
+            $http.get("api/file/" + $scope.user_info.user_id + "/filelist",
                 { headers:
-                   {'Authorization':'Bearer ' + $scope.access_token
+                   {'Authorization':'Bearer ' + $scope.user_info.access_token
                    }
                 }).success(
                     function( data, status, headers, config, statusText ) {
@@ -71,17 +71,9 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http',
 
 shareAppControllers.controller("LogoutCtrl", ['$scope', '$routeParams',
     function( $scope ) {
-        window.sessionStorage.removeItem('user_id');
-        window.sessionStorage.removeItem('access_token');
-        window.sessionStorage.removeItem('auth_code');
-        window.sessionStorage.removeItem('user_email');
-        window.sessionStorage.removeItem('user_name');
-
-        document.getElementById("login-control").style.display = "block";
-        document.getElementById("logout-control").style.display = "none";
-
+        logout( $scope, document );
     }
-])
+]);
 
 /**
  * 
@@ -89,39 +81,73 @@ shareAppControllers.controller("LogoutCtrl", ['$scope', '$routeParams',
  * @returns {unresolved}
  *
  **/
-function base64urlDecode(str) {
+var base64urlDecode  = function(str) {
   return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
 };
 
-function setCurrentUser( username ) {
-    document.getElementById("current-user")
-        .appendChild(
-        document.createTextNode("Logged in as: " + username)
-    );
+var setCurrentUser = function ( username, document ) {
+    if (document.getElementById("current-user") != null &&
+        document.getElementById("current-user") != undefined) {
+
+        document.getElementById("current-user")
+            .appendChild(
+            document.createTextNode("Logged in as: " + username)
+        );
+    }
+
+    document.getElementById("login-control").style.display = "none";
+    document.getElementById("logout-control").style.display = "block";
+};
+
+var logout = function( $scope, document ) {
+    window.sessionStorage.removeItem('user_id');
+    window.sessionStorage.removeItem('access_token');
+    window.sessionStorage.removeItem('auth_code');
+    window.sessionStorage.removeItem('user_email');
+    window.sessionStorage.removeItem('user_name');
+
+    document.getElementById("login-control").style.display = "block";
+    document.getElementById("logout-control").style.display = "none";
+};
+
+var checkLoginStatus = function( $scope, document ) {
+
+    //TODO: OR invalid token
+    if( $scope.user_info == undefined ||
+        $scope.user_info == null ) {
+        $scope.user_info = {};
+    }
+
+    //TODO: Validate token
+    //TODO: Look into using this to fix the issues we have with share pages, etc
+    //TODO: that get wonky (filelist call results in unauthorized popup, etc),
+    //TODO: when an access token is invalidated due to logging in somewhere else, etc.
+    //TODO: ng-if in login template?s
+    $scope.user_info.access_token = window.sessionStorage.getItem("access_token");
+    $scope.user_info.token_expiration = window.sessionStorage.getItem("expires_in");
+    $scope.user_info.user_id = window.sessionStorage.getItem("user_id");
+    //for now, don't clear this, so we can try to auto-fill later
+    //$scope.user_info.user_email = window.sessionStorage.getItem("user_email");
+    $scope.user_info.user_name = window.sessionStorage.getItem("user_name");
+
+    if( $scope.user_info.access_token != undefined &&
+        $scope.user_info.access_token != null &&
+        $scope.user_info.user_name != undefined &&
+        $scope.user_info.user_name != null ) {
+        setCurrentUser($scope.user_info.user_name, document);
+    } else {
+        logout($scope, document);
+    }
+
 }
 
 shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
     function( $scope, $http, $routeParams ) {
-        //TODO: Check if we already have a token & user info in session storage,
-        //TODO: if so, ping the endpoint to validate token.
-        //TODO: if it's still valid, just swap Login with Logout
-        //TODO: ALso, need an ng-if in Login template as well
-        $scope.user_info = {};
         $scope.credentials = {};
-
-        //TODO: write functions around this (and validating token). Then we can
-        //TODO: pull this into other controllers, handle token timeouts, etc.
-        $scope.user_info.access_token = window.sessionStorage.getItem("access_token");
-        $scope.user_info.token_expiration = window.sessionStorage.getItem("expires_in");
-        $scope.user_info.user_id = window.sessionStorage.getItem("user_id");
-        $scope.user_info.user_email = window.sessionStorage.getItem("user_email");
-        $scope.user_info.user_name = window.sessionStorage.getItem("user_name");
-
-        if( $scope.user_info.access_token != undefined &&
-            $scope.user_info.access_token != null &&
-            $scope.user_info.user_name != undefined &&
-            $scope.user_info.user_name != null ) {
-            setCurrentUser($scope.user_info.user_name);
+        checkLoginStatus($scope, document);
+        if( $scope.user_info.user_email != null &&
+            $scope.user_info.user_email != undefined ) {
+            $scope.credentials.username = $scope.user_info.user_email;
         }
 
         document.getElementById("legacy-duck-game").style.display = "none";
@@ -155,8 +181,7 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
                  }
                  */
             ).success( function( data, status, headers, config ) {
-
-                    //TODO: pull setting/clearing session storage & login controls into function
+                    //TODO: pull setting session storage & login controls into function
                     $scope.user_info.access_token = data.accessToken;
                     $scope.user_info.user_id = data.idTokenBody.sub;
                     $scope.user_info.user_email = data.idTokenBody.email;
@@ -169,11 +194,7 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
                     window.sessionStorage.setItem("user_email", $scope.user_info.user_email);
                     window.sessionStorage.setItem("user_name",$scope.user_info.user_name)
 
-
-                    document.getElementById("login-control").style.display = "none";
-                    document.getElementById("logout-control").style.display = "block";
-
-                    setCurrentUser($scope.user_info.user_name);
+                    setCurrentUser($scope.user_info.user_name, document);
                 }).error( function( data, status, headers, config ) {
                     alert( status + " " + data );
                 })
@@ -231,8 +252,7 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
                 window.sessionStorage.setItem("user_name",$scope.user_info.user_name)
                 //window.sessionStorage.setItem("id_token_signature", signature);
 
-                document.getElementById("login-control").style.display = "none";
-                document.getElementById("logout-control").style.display = "block";
+                setCurrentUser($scope.user_info.user_name, document);
             }
         }
     }

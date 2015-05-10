@@ -1,11 +1,11 @@
-<div class="app-content" ng-if="user_name">
+<div class="app-content" ng-if="user_info.user_name">
 
-    {{user_name}}'s stuff <br/>
+    {{user_info.user_name}}'s stuff <br/>
     <ol>
         <!-- TODO: previews when possible! -->
         <br/>
         <li ng-repeat="item in itemlist">
-            <a href="/api/file/{{user_id}}/{{access_token}}/{{item}}">{{item}}</a>
+            <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item}}">{{item}}</a>
         </li>
     </ol>
     <br/>
@@ -19,11 +19,11 @@
         <input id="upload_file_select" type="file" name="file" class="upload-file-select"/><br/>
         <label for="file_submit">Save File:</label>
         <input type="submit" value="Upload" id="file_submit" class="submit-button"/> <br/>
-        <input type="hidden" name="user_id" value="{{user_id}}"/>
-        <input type="hidden" name="access_token" value="{{access_token}}"/>
+        <input type="hidden" name="user_id" value="{{user_info.user_id}}"/>
+        <input type="hidden" name="access_token" value="{{user_info.access_token}}"/>
     </form>
 
 </div>
-<div class="app-content" ng-if="!user_name">
+<div class="app-content" ng-if="!user_info.user_name">
     Please login in to share
 </div>

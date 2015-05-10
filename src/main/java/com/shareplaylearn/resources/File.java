@@ -8,16 +8,11 @@ import com.shareplaylearn.services.SecretsService;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
-import javax.validation.constraints.NotNull;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -36,8 +31,8 @@ public class File {
      * https://calculator.s3.amazonaws.com/index.html says we should be spending around $24 max.
      */
     //per user
-    private static final int MAX_NUM_FILES = 100;
-    private static final int MAX_NUM_USERS = 10;
+    private static final int MAX_NUM_FILES_PER_USER = 100;
+    private static final int MAX_TOTAL_FILES = 1000;
     //limit retrieves to 0.5 GB for now (Tomcat should limit uploads to 2MB).
     //raise to 1 GB when we buy more memory (if needed)
     private static final int MAX_RETRIEVE_SIZE = (1024*1024*1024)/2;
@@ -128,18 +123,18 @@ public class File {
                     new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
             ObjectListing curList = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
             Response listCheck;
-            if ((listCheck = this.checkObjectListingSize(curList, MAX_NUM_FILES)).getStatus() != Response.Status.OK.getStatusCode()) {
+            if ((listCheck = this.checkObjectListingSize(curList, MAX_NUM_FILES_PER_USER)).getStatus() != Response.Status.OK.getStatusCode()) {
                 return listCheck;
             }
             ObjectListing userList = s3Client.listObjects(S3_BUCKET, "/");
-            if ((listCheck = this.checkObjectListingSize(userList, MAX_NUM_USERS)).getStatus() != Response.Status.OK.getStatusCode()) {
+            if ((listCheck = this.checkObjectListingSize(userList, MAX_TOTAL_FILES)).getStatus() != Response.Status.OK.getStatusCode()) {
                 return listCheck;
             }
 
             ObjectMetadata fileMetadata = new ObjectMetadata();
             fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
             fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
-            //amazon bitches if you don't supply this,
+            //amazon complains if you don't supply this,
             //yet it throws 501/not implemented due to supplied header if you do
             //morons.
             ///fileMetadata.setContentLength(contentDisposition.getSize());

@@ -21,7 +21,7 @@ Angular template for the login page
         <label for="gmail_email">Gmail email</label>
         <input id="gmail_email" type="text" ng-model="credentials.username" required /><br/>
         <label for="gmail_password">Gmail password</label>
-        <input id="gmail_password" type="text" ng-model="credentials.password" required /><br/>
+        <input id="gmail_password" type="password" ng-model="credentials.password" required /><br/>
         <button type="submit" ng-disabled="OauthPasswordFlowLogin.$invalid" class="submit-button">
             Login
         </button><br/>

@@ -93,16 +93,38 @@ function base64urlDecode(str) {
   return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
 };
 
+function setCurrentUser( username ) {
+    document.getElementById("current-user")
+        .appendChild(
+        document.createTextNode("Logged in as: " + username)
+    );
+}
+
 shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
     function( $scope, $http, $routeParams ) {
         //TODO: Check if we already have a token & user info in session storage,
         //TODO: if so, ping the endpoint to validate token.
         //TODO: if it's still valid, just swap Login with Logout
         //TODO: ALso, need an ng-if in Login template as well
-
-        document.getElementById("legacy-duck-game").style.display = "none";
         $scope.user_info = {};
         $scope.credentials = {};
+
+        //TODO: write functions around this (and validating token). Then we can
+        //TODO: pull this into other controllers, handle token timeouts, etc.
+        $scope.user_info.access_token = window.sessionStorage.getItem("access_token");
+        $scope.user_info.token_expiration = window.sessionStorage.getItem("expires_in");
+        $scope.user_info.user_id = window.sessionStorage.getItem("user_id");
+        $scope.user_info.user_email = window.sessionStorage.getItem("user_email");
+        $scope.user_info.user_name = window.sessionStorage.getItem("user_name");
+
+        if( $scope.user_info.access_token != undefined &&
+            $scope.user_info.access_token != null &&
+            $scope.user_info.user_name != undefined &&
+            $scope.user_info.user_name != null ) {
+            setCurrentUser($scope.user_info.user_name);
+        }
+
+        document.getElementById("legacy-duck-game").style.display = "none";
 
         $scope.submitLogin = function(credentials) {
             $http.post("api/access_token", null,
@@ -151,6 +173,7 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
                     document.getElementById("login-control").style.display = "none";
                     document.getElementById("logout-control").style.display = "block";
 
+                    setCurrentUser($scope.user_info.user_name);
                 }).error( function( data, status, headers, config ) {
                     alert( status + " " + data );
                 })

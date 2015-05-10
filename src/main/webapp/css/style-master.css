@@ -17,6 +17,13 @@ p {
 label {
     margin-right:0.5em;
     margin-top:0.5em;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+input {
+    display: inline-block;
+    vertical-align: middle;
 }
 
 #wrap {
@@ -28,13 +35,17 @@ label {
 }
 
 .upload-file-select {
-    float: right;
+    /*float: right;*/
     margin-top: 0.5em;
+    display: inline-block;
+    vertical-align: middle;
 }
 
-.file-submit-button {
-    float:right;
+.submit-button {
+    /*float:right;*/
     margin-top:0.7em;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .header {

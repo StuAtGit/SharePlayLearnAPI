@@ -12,7 +12,7 @@ Angular template for the login page
         <!-- generate a random number for this session and save in session state - this can be recovered by the browser js
              code when the redirect comes back from the servlet-->
         <input type="hidden" name="state" value="insecure_test_token"/>
-        <input type="submit" value="Log in with Google"/>
+        <input type="submit" value="Log in with Google" class="submit-button"/>
     </form>
     <br/>
     <hr width="100%" size="0.3em">
@@ -22,7 +22,10 @@ Angular template for the login page
         <input id="gmail_email" type="text" ng-model="credentials.username" required /><br/>
         <label for="gmail_password">Gmail password</label>
         <input id="gmail_password" type="text" ng-model="credentials.password" required /><br/>
-        <button type="submit" ng-disabled="OauthPasswordFlowLogin.$invalid">Login</button>
+        <button type="submit" ng-disabled="OauthPasswordFlowLogin.$invalid" class="submit-button">
+            Login
+        </button><br/>
+        <label id="current-user"></label>
     </form>
 
 </div>

@@ -219,6 +219,7 @@ public class File {
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
+        //TODO: Handle valid ID with invalid S3 object (I had a cached filelist that pointed at files I deleted off S3)
         ObjectMetadata objectMetadata = s3Client.getObjectMetadata(S3_BUCKET, itemPath);
         if( access_token == null  || access_token.length() == 0 ) {
             if(objectMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD) == FileMetadata.IS_PUBLIC) {

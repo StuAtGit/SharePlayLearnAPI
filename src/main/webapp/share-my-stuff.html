@@ -12,16 +12,22 @@
     <hr width="100%" size="0.3em"/>
     Upload new stuff:
     <!-- Upload File Form - needs much improvement -->
-    <form action="/api/file/form" method="post" enctype="multipart/form-data">
+    <form action="/api/file/form" method="post" enctype="multipart/form-data"
+          ng-submit="submitUpload(file_upload,user_info)" novalidate>
         <!--<label for="upload_filename">Save file as:</label>-->
-        <!--<input id="upload_filename" type="text" name="filename"/> <br/>-->
+        <!--<input id="upload_filename" type="text" name="filename"
+        ng-model="file_upload.filename"/> <br/>-->
         <label for="upload_file_select">Select File:</label>
-        <input id="upload_file_select" type="file" name="file" class="upload-file-select"/><br/>
+        <input id="upload_file_select" type="file" name="file"
+               ng-model="file_upload.file" class="upload-file-select"/><br/>
         <label for="file_submit">Save File:</label>
         <input type="submit" value="Upload" id="file_submit" class="submit-button"/> <br/>
-        <input type="hidden" name="user_id" value="{{user_info.user_id}}"/>
-        <input type="hidden" name="access_token" value="{{user_info.access_token}}"/>
+        <input type="hidden" name="user_id" value="{{user_info.user_id}}"
+               ng-model="user_info.user_id"/>
+        <input type="hidden" name="access_token" value="{{user_info.access_token}}"
+               ng-model="user_info.user_id"/>
     </form>
+    <div id="file_uploaded" style="display:none;">File Uploaded :)</div>
 
 </div>
 <div class="app-content" ng-if="!user_info.user_name">

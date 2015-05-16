@@ -167,7 +167,15 @@ public class OauthPasswordFlow {
         for( Map.Entry<String,String> cookie : oauthCookies.entrySet() ) {
             System.out.println(cookie.getKey() + "," + cookie.getValue());
         }
-        Connection.Response postResponse = oauthPostConnection.method(Connection.Method.POST).timeout(5000).execute();
+        Connection.Response postResponse = null;
+        try {
+            postResponse = oauthPostConnection.method(Connection.Method.POST).timeout(5000).execute();
+        } catch ( Throwable t ) {
+            System.out.println( "Failed to post login information to googles endpoint :/ " + t.getMessage());
+            System.out.println( "This usually means the connectio is bad, or, more likely" +
+                    " google is being a punk - login manually and check.");
+            assertTrue( false );
+        }
         if( postResponse.statusCode() != 200 ) {
             String errorMessage = "Failed to validate credentials: "
                     + oauthResponse.statusCode() + " / " + oauthResponse.statusMessage();

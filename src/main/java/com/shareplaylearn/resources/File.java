@@ -7,11 +7,17 @@ import com.google.gson.Gson;
 import com.shareplaylearn.services.SecretsService;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
+import sun.misc.IOUtils;
 
+import javax.imageio.ImageIO;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.*;
+import java.net.InetAddress;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -133,13 +139,41 @@ public class File {
 
             ObjectMetadata fileMetadata = new ObjectMetadata();
             fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
+
+            filestream.skip(0);
             fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
             //amazon complains if you don't supply this,
             //yet it throws 501/not implemented due to supplied header if you do
             //morons.
             ///fileMetadata.setContentLength(contentDisposition.getSize());
+            //we can't mark & reset this, so we'll need to read it all, so we can generate the preview later..
+            byte[] fileBuffer = new byte[filestream.available()];
+            org.apache.commons.io.IOUtils.read(filestream, fileBuffer);
             s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, filestream, fileMetadata);
+
+            //this is a simple, but possibly slow method
+            //first - to detect the file, it just checks if we have any readers for it
+            //next - ImageIO.getScaledInstance is supposed to be a bit slow (but this info may be outdated?)
+            //https://stackoverflow.com/questions/4220612/scaling-images-with-java-jai
+            //https://github.com/thebuzzmedia/imgscalr/blob/master/src/main/java/org/imgscalr/Scalr.java
+
+            BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(fileBuffer));
+            if( bufferedImage != null ) {
+                Image scaledImage = bufferedImage.getScaledInstance(100,100, BufferedImage.SCALE_SMOOTH);
+                BufferedImage preview = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
+                preview.createGraphics().drawImage(scaledImage, 0, 0, null);
+                ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
+                ImageIO.write(preview, "jpg", previewOutputStream);
+                ByteArrayInputStream previewInputStream = new ByteArrayInputStream(previewOutputStream.toByteArray());
+                fileMetadata.addUserMetadata("IsPreview", "True");
+                s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename + "-preview", previewInputStream, fileMetadata);
+                previewOutputStream.close();
+                previewInputStream.close();
+            }
             return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
+            //TODO: convert back to "Created" once we have an async angular form. For now, just do a hard-coded return
+            //TODO: to the original page
+            //return Response.seeOther(URI.create("https://" + InetAddress.getLocalHost() + "/#/share/uploaded")).build();
         }
         catch( RuntimeException r )
         {

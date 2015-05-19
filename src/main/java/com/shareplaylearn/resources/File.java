@@ -5,11 +5,14 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.google.gson.Gson;
 import com.shareplaylearn.services.SecretsService;
+import org.glassfish.jersey.media.multipart.ContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import sun.misc.IOUtils;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -19,7 +22,9 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by stu on 4/14/15.
@@ -95,7 +100,8 @@ public class File {
                                   //and add this where we want/need to
                                   @FormDataParam("filename") String filename,
                                   @FormDataParam("user_id") String userId,
-                                  @FormDataParam("access_token") String accessToken )
+                                  @FormDataParam("access_token") String accessToken,
+                                  @HeaderParam("Content-Length") String contentLength )
     {
         try {
             //these still show up as null, despite annotations
@@ -140,16 +146,14 @@ public class File {
             ObjectMetadata fileMetadata = new ObjectMetadata();
             fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
 
-            filestream.skip(0);
             fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
-            //amazon complains if you don't supply this,
-            //yet it throws 501/not implemented due to supplied header if you do
-            //morons.
-            ///fileMetadata.setContentLength(contentDisposition.getSize());
-            //we can't mark & reset this, so we'll need to read it all, so we can generate the preview later..
-            byte[] fileBuffer = new byte[filestream.available()];
-            org.apache.commons.io.IOUtils.read(filestream, fileBuffer);
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, filestream, fileMetadata);
+
+            byte[] fileBuffer = org.apache.commons.io.IOUtils.toByteArray(filestream);
+            int fileLength = fileBuffer.length;
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
+            fileMetadata.setContentLength(fileLength);
+            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
+
 
             //this is a simple, but possibly slow method
             //first - to detect the file, it just checks if we have any readers for it
@@ -157,19 +161,42 @@ public class File {
             //https://stackoverflow.com/questions/4220612/scaling-images-with-java-jai
             //https://github.com/thebuzzmedia/imgscalr/blob/master/src/main/java/org/imgscalr/Scalr.java
 
-            BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(fileBuffer));
-            if( bufferedImage != null ) {
-                Image scaledImage = bufferedImage.getScaledInstance(100,100, BufferedImage.SCALE_SMOOTH);
+            //basically, we just redeclare so the stream is reset
+            byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
+            ImageInputStream imageInputStream = ImageIO.createImageInputStream(byteArrayInputStream);
+            Iterator<ImageReader> imageReaderIterator = ImageIO.getImageReaders(imageInputStream);
+            if (imageReaderIterator.hasNext()) {
+                System.out.println("Iterator had a reader?");
+            } else {
+                System.out.println("Nope!!!");
+            }
+            /**
+             * This is pretty bad, but it works. We might want to move this check up (and factor the code into a method),
+             * so we can add a "HasPreview" : "Preview-name" to the original image.
+             * More importantly, the scaling kind of sucks right now - at least get the same aspect ratio, abouts.
+             * And a little bigger wouldn't hurt. As well as a medium sized image for BIG photos that we
+             * serve by default.
+             */
+            BufferedImage bufferedImage = ImageIO.read(imageInputStream);
+            if (bufferedImage != null) {
+                System.out.println("Detected an image upload, attempting to generate a preview.");
+                Image scaledImage = bufferedImage.getScaledInstance(100, 100, BufferedImage.SCALE_SMOOTH);
                 BufferedImage preview = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
                 preview.createGraphics().drawImage(scaledImage, 0, 0, null);
                 ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
                 ImageIO.write(preview, "jpg", previewOutputStream);
-                ByteArrayInputStream previewInputStream = new ByteArrayInputStream(previewOutputStream.toByteArray());
-                fileMetadata.addUserMetadata("IsPreview", "True");
-                s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename + "-preview", previewInputStream, fileMetadata);
+                byte[] outputBuffer = previewOutputStream.toByteArray();
+                ByteArrayInputStream previewInputStream = new ByteArrayInputStream(outputBuffer);
+                fileMetadata.addUserMetadata("IsPreview", "true");
+                fileMetadata.addUserMetadata("IsPreviewOf", filename);
+                fileMetadata.setContentLength(outputBuffer.length);
+                s3Client.putObject(S3_BUCKET, "/" + userId + "/" + "Preview-" + filename, previewInputStream, fileMetadata);
                 previewOutputStream.close();
                 previewInputStream.close();
+            } else if (filename.endsWith(".jpg")) {
+                System.out.println("User uploaded a file ending with .jpg, but image handler was not found.");
             }
+
             return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
             //TODO: convert back to "Created" once we have an async angular form. For now, just do a hard-coded return
             //TODO: to the original page

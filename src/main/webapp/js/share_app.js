@@ -8,7 +8,7 @@ shareApp.config(
                 when('/share', {
                     templateUrl: "share-my-stuff.html",
                     controller:  "ShareMyStuffCtrl"
-                }).when('/share/:userName' , {
+                }).when('/share/:uploaded_flag' , {
                     templateUrl: "share-my-stuff.html",
                     controller: "ShareMyStuffCtrl"
                 }).when('/login',{

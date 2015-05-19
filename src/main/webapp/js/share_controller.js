@@ -33,12 +33,24 @@ shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
 ])
 
 
-shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http',
-    function( $scope, $http ) {
+shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routeParams',
+    function( $scope, $http, $route ) {
         checkLoginStatus($scope, document);
         document.getElementById("legacy-duck-game").style.display = "none";
 
         $scope.itemlist = [];
+
+        //Angular can't deal with input type file models right now
+        //so we'll need a more complex solution for the async upload
+        $scope.submitUpload = function( file_upload, user_info ) {
+            //$http.post("api/file/form")
+        }
+
+        if( "uploaded" in $routeParams ) {
+            document.getElementById("file-uploaded").style.display = "block";
+        } else {
+            document.getElementById("file-uploaded").style.display = "none";
+        }
 
         if( $scope.user_info.access_token != null &&
             $scope.user_info.access_token != undefined &&
@@ -118,11 +130,7 @@ var checkLoginStatus = function( $scope, document ) {
         $scope.user_info = {};
     }
 
-    //TODO: Validate token
-    //TODO: Look into using this to fix the issues we have with share pages, etc
-    //TODO: that get wonky (filelist call results in unauthorized popup, etc),
-    //TODO: when an access token is invalidated due to logging in somewhere else, etc.
-    //TODO: ng-if in login template?s
+    //TODO: Validate token, otherwise this logic fails messily when things timeout
     $scope.user_info.access_token = window.sessionStorage.getItem("access_token");
     $scope.user_info.token_expiration = window.sessionStorage.getItem("expires_in");
     $scope.user_info.user_id = window.sessionStorage.getItem("user_id");

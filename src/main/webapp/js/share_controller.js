@@ -34,7 +34,7 @@ shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
 
 
 shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routeParams',
-    function( $scope, $http, $route ) {
+    function( $scope, $http, $routeParams ) {
         checkLoginStatus($scope, document);
         document.getElementById("legacy-duck-game").style.display = "none";
 
@@ -48,7 +48,8 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routePar
 
         if( "uploaded" in $routeParams ) {
             document.getElementById("file-uploaded").style.display = "block";
-        } else {
+        } else if ( document.getElementById("file-uploaded") != null &&
+                    document.getElementById("file-uploaded") != undefined ) {
             document.getElementById("file-uploaded").style.display = "none";
         }
 

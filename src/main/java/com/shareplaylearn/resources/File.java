@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by stu on 4/14/15.
@@ -145,32 +146,20 @@ public class File {
 
             ObjectMetadata fileMetadata = new ObjectMetadata();
             fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
-
             fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
 
             byte[] fileBuffer = org.apache.commons.io.IOUtils.toByteArray(filestream);
             int fileLength = fileBuffer.length;
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
             fileMetadata.setContentLength(fileLength);
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
-
 
             //this is a simple, but possibly slow method
             //first - to detect the file, it just checks if we have any readers for it
             //next - ImageIO.getScaledInstance is supposed to be a bit slow (but this info may be outdated?)
             //https://stackoverflow.com/questions/4220612/scaling-images-with-java-jai
             //https://github.com/thebuzzmedia/imgscalr/blob/master/src/main/java/org/imgscalr/Scalr.java
-
-            //basically, we just redeclare so the stream is reset
-            byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
             ImageInputStream imageInputStream = ImageIO.createImageInputStream(byteArrayInputStream);
-            Iterator<ImageReader> imageReaderIterator = ImageIO.getImageReaders(imageInputStream);
-            if (imageReaderIterator.hasNext()) {
-                System.out.println("Iterator had a reader?");
-            } else {
-                System.out.println("Nope!!!");
-            }
-            /**
+             /**
              * This is pretty bad, but it works. We might want to move this check up (and factor the code into a method),
              * so we can add a "HasPreview" : "Preview-name" to the original image.
              * More importantly, the scaling kind of sucks right now - at least get the same aspect ratio, abouts.
@@ -178,23 +167,14 @@ public class File {
              * serve by default.
              */
             BufferedImage bufferedImage = ImageIO.read(imageInputStream);
+            //perhaps not the best way to check for an image, but it works!
             if (bufferedImage != null) {
-                System.out.println("Detected an image upload, attempting to generate a preview.");
-                Image scaledImage = bufferedImage.getScaledInstance(100, 100, BufferedImage.SCALE_SMOOTH);
-                BufferedImage preview = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
-                preview.createGraphics().drawImage(scaledImage, 0, 0, null);
-                ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
-                ImageIO.write(preview, "jpg", previewOutputStream);
-                byte[] outputBuffer = previewOutputStream.toByteArray();
-                ByteArrayInputStream previewInputStream = new ByteArrayInputStream(outputBuffer);
-                fileMetadata.addUserMetadata("IsPreview", "true");
-                fileMetadata.addUserMetadata("IsPreviewOf", filename);
-                fileMetadata.setContentLength(outputBuffer.length);
-                s3Client.putObject(S3_BUCKET, "/" + userId + "/" + "Preview-" + filename, previewInputStream, fileMetadata);
-                previewOutputStream.close();
-                previewInputStream.close();
-            } else if (filename.endsWith(".jpg")) {
-                System.out.println("User uploaded a file ending with .jpg, but image handler was not found.");
+                processImageUpload(fileBuffer, bufferedImage, filename, userId,
+                        fileMetadata, s3Client );
+            } else {
+                //basically, we just redeclare so the stream is reset
+                byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
+                s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
             }
 
             return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
@@ -216,6 +196,67 @@ public class File {
             t.printStackTrace(pw);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
         }
+    }
+
+    private void processImageUpload( byte[] fileBuffer, BufferedImage bufferedImage, String filename,
+                                     String userId, ObjectMetadata fileMetadata,
+                                     AmazonS3Client s3Client ) throws IOException {
+        System.out.println("Detected an image upload, attempting to generate a preview.");
+        int width = bufferedImage.getWidth();
+        int previewWidth = 200;
+        int resizeWidth = 1024;
+
+        AtomicInteger previewContentLength = new AtomicInteger(0);
+        ByteArrayInputStream previewInputStream = shrinkImageToWidth(bufferedImage, previewWidth, previewContentLength);
+        ObjectMetadata previewMetadata = new ObjectMetadata();
+        previewMetadata.addUserMetadata("IsPreview", "true");
+        previewMetadata.addUserMetadata("IsPreviewOf", filename);
+        String publicField = fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD);
+        if( publicField != null ) {
+            previewMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
+        } else {
+            System.out.println("Public field was null?");
+        }
+        previewMetadata.setContentEncoding(fileMetadata.getContentEncoding());
+        previewMetadata.setContentLength(previewContentLength.get());
+        s3Client.putObject(S3_BUCKET, "/" + userId + "/" + "Preview-" + filename, previewInputStream, previewMetadata);
+        previewInputStream.close();
+
+        if( width > resizeWidth ) {
+            AtomicInteger resizedContentLenth = new AtomicInteger(0);
+            ByteArrayInputStream resizedInputStream = shrinkImageToWidth(bufferedImage, resizeWidth, resizedContentLenth);
+            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, resizedInputStream, fileMetadata);
+            ObjectMetadata resizedMetadata = new ObjectMetadata();
+            resizedMetadata.addUserMetadata("HasOriginal", "true");
+            resizedMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
+            resizedMetadata.setContentDisposition(fileMetadata.getContentDisposition());
+            resizedMetadata.setContentLength(resizedContentLenth.get());
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
+            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + "Original-" + filename, byteArrayInputStream, fileMetadata);
+        } else {
+            //basically, we just redeclare so the stream is reset
+            fileMetadata.addUserMetadata("HasOriginal", "false");
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
+            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
+        }
+    }
+
+    private ByteArrayInputStream shrinkImageToWidth( BufferedImage bufferedImage, int targetWidth,
+                                                     AtomicInteger returnInputStreamLength) throws IOException {
+        double previewRatio = (double)targetWidth / (double)bufferedImage.getWidth();
+        System.out.println("preview ratio: " + previewRatio);
+        System.out.println("Original height: " + bufferedImage.getHeight());
+        System.out.println("original width: " + bufferedImage.getWidth());
+        int previewHeight = (int)(previewRatio*bufferedImage.getHeight());
+        Image scaledImage = bufferedImage.getScaledInstance(targetWidth, previewHeight, BufferedImage.SCALE_SMOOTH);
+        BufferedImage preview = new BufferedImage(targetWidth, previewHeight, BufferedImage.TYPE_INT_RGB);
+        preview.createGraphics().drawImage(scaledImage, 0, 0, null);
+        ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
+        ImageIO.write(preview, "jpg", previewOutputStream);
+        byte[] outputBuffer = previewOutputStream.toByteArray();
+        ByteArrayInputStream scaledInputStream = new ByteArrayInputStream(outputBuffer);
+        returnInputStreamLength.set(outputBuffer.length);
+        return scaledInputStream;
     }
 
     private Response getS3Object( AmazonS3Client s3Client, String itemPath ) {

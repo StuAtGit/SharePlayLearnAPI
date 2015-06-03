@@ -225,12 +225,12 @@ public class File {
         if( width > resizeWidth ) {
             AtomicInteger resizedContentLenth = new AtomicInteger(0);
             ByteArrayInputStream resizedInputStream = shrinkImageToWidth(bufferedImage, resizeWidth, resizedContentLenth);
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, resizedInputStream, fileMetadata);
             ObjectMetadata resizedMetadata = new ObjectMetadata();
             resizedMetadata.addUserMetadata("HasOriginal", "true");
             resizedMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
-            resizedMetadata.setContentDisposition(fileMetadata.getContentDisposition());
+            resizedMetadata.setContentEncoding(fileMetadata.getContentEncoding());
             resizedMetadata.setContentLength(resizedContentLenth.get());
+            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, resizedInputStream, resizedMetadata);
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
             s3Client.putObject(S3_BUCKET, "/" + userId + "/" + "Original-" + filename, byteArrayInputStream, fileMetadata);
         } else {

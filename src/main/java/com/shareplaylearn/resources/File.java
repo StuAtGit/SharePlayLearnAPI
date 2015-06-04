@@ -232,6 +232,9 @@ public class File {
          *
          *THEN we can update the ShareMyStuff template to process the new itemlist entries, and
          *     create previews w/ popup links, etc.
+         *
+         *NEXT - NOTES! Markdown! HTML! Might be a nice way to transition to the Learn page
+         *       (by creating tools for tutorial creation)
          */
         if( width > resizeWidth ) {
             String originalKey = "/" + userId + "/" + "Original-" + filename;

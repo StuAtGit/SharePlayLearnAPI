@@ -219,20 +219,36 @@ public class File {
         }
         previewMetadata.setContentEncoding(fileMetadata.getContentEncoding());
         previewMetadata.setContentLength(previewContentLength.get());
-        s3Client.putObject(S3_BUCKET, "/" + userId + "/" + "Preview-" + filename, previewInputStream, previewMetadata);
+        String previewKey = "/" + userId + "/" + "Preview-" + filename;
+        s3Client.putObject(S3_BUCKET, previewKey, previewInputStream, previewMetadata);
         previewInputStream.close();
 
+        /**
+         * TODO: pull this out into an ImageProcessing class (factor out keys like "HasOriginal" while we're at it).
+         * (perhaps even an tryFile() method that returns an Image if it is one, and null otherwise)
+         * Also, have it create a FileList full of FileListEntries (see below).
+         * We'll need to wipe the S3 repo to rebuild it - since we're doing that, might as well create
+         * /image /[ type ] subcategory handling code, and start with that.
+         *
+         *THEN we can update the ShareMyStuff template to process the new itemlist entries, and
+         *     create previews w/ popup links, etc.
+         */
         if( width > resizeWidth ) {
+            String originalKey = "/" + userId + "/" + "Original-" + filename;
             AtomicInteger resizedContentLenth = new AtomicInteger(0);
             ByteArrayInputStream resizedInputStream = shrinkImageToWidth(bufferedImage, resizeWidth, resizedContentLenth);
             ObjectMetadata resizedMetadata = new ObjectMetadata();
             resizedMetadata.addUserMetadata("HasOriginal", "true");
+            resizedMetadata.addUserMetadata("HasPreview", "true");
+            resizedMetadata.addUserMetadata("PreviewKey", previewKey);
+            resizedMetadata.addUserMetadata("OriginalKey",originalKey );
             resizedMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
             resizedMetadata.setContentEncoding(fileMetadata.getContentEncoding());
             resizedMetadata.setContentLength(resizedContentLenth.get());
             s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, resizedInputStream, resizedMetadata);
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + "Original-" + filename, byteArrayInputStream, fileMetadata);
+            fileMetadata.addUserMetadata("IsOriginal", "true");
+            s3Client.putObject(S3_BUCKET, originalKey, byteArrayInputStream, fileMetadata);
         } else {
             //basically, we just redeclare so the stream is reset
             fileMetadata.addUserMetadata("HasOriginal", "false");
@@ -365,6 +381,63 @@ public class File {
                                               @PathParam("access_token") String access_token)
     {
         return getFileGeneric(userId, filename, access_token );
+    }
+
+    public static class FileListEntry {
+
+        public boolean isPreview;
+        public boolean isOriginal;
+        public boolean hasPreview;
+        public boolean hasOriginal;
+        public String type;
+        public String link;
+        public String previewLink;
+        public String originalLink;
+
+        public FileListEntry( String link, String type ) {
+            this.link = link;
+            this.type = type;
+        }
+
+        public FileListEntry setIsPreview( boolean isPreview ) {
+            this.isPreview = isPreview;
+            return this;
+        }
+
+        public FileListEntry setHasPreview( boolean hasPreview ) {
+            this.hasPreview = hasPreview;
+            return this;
+        }
+
+        public FileListEntry setIsOriginal(boolean isOriginal) {
+            this.isOriginal = isOriginal;
+            return this;
+        }
+
+        public FileListEntry setHasOriginal(boolean hasOriginal) {
+            this.hasOriginal = hasOriginal;
+            return this;
+        }
+
+        public FileListEntry setType(String type) {
+            this.type = type;
+            return this;
+        }
+
+        public FileListEntry setLink(String link) {
+            this.link = link;
+            return this;
+        }
+
+        public FileListEntry setPreviewLink(String previewLink) {
+            this.previewLink = previewLink;
+            return this;
+        }
+
+        public FileListEntry setOriginalLink(String originalLink) {
+            this.originalLink = originalLink;
+            return this;
+        }
     }
 
     @GET

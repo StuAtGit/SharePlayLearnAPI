@@ -4,7 +4,10 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.google.gson.Gson;
+import com.shareplaylearn.services.ImagePreprocessorPlugin;
 import com.shareplaylearn.services.SecretsService;
+import com.shareplaylearn.services.UploadPreprocessor;
+import com.shareplaylearn.services.UploadPreprocessorPlugin;
 import org.glassfish.jersey.media.multipart.ContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
@@ -21,10 +24,8 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -152,13 +153,7 @@ public class File {
             int fileLength = fileBuffer.length;
             fileMetadata.setContentLength(fileLength);
 
-            //this is a simple, but possibly slow method
-            //first - to detect the file, it just checks if we have any readers for it
-            //next - ImageIO.getScaledInstance is supposed to be a bit slow (but this info may be outdated?)
-            //https://stackoverflow.com/questions/4220612/scaling-images-with-java-jai
-            //https://github.com/thebuzzmedia/imgscalr/blob/master/src/main/java/org/imgscalr/Scalr.java
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
-            ImageInputStream imageInputStream = ImageIO.createImageInputStream(byteArrayInputStream);
+
              /**
              * This is pretty bad, but it works. We might want to move this check up (and factor the code into a method),
              * so we can add a "HasPreview" : "Preview-name" to the original image.
@@ -166,16 +161,18 @@ public class File {
              * And a little bigger wouldn't hurt. As well as a medium sized image for BIG photos that we
              * serve by default.
              */
-            BufferedImage bufferedImage = ImageIO.read(imageInputStream);
+
             //perhaps not the best way to check for an image, but it works!
-            if (bufferedImage != null) {
-                processImageUpload(fileBuffer, bufferedImage, filename, userId,
-                        fileMetadata, s3Client );
-            } else {
-                //basically, we just redeclare so the stream is reset
-                byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
-                s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
-            }
+            List<UploadPreprocessorPlugin> uploadPreprocessorPlugins = new ArrayList<>();
+            uploadPreprocessorPlugins.add(new ImagePreprocessorPlugin());
+            UploadPreprocessor uploadPreprocessor = new UploadPreprocessor( uploadPreprocessorPlugins );
+            Map<String,byte[]> uploads = uploadPreprocessor.process(fileBuffer);
+            //TODO: now we have to split the uploads up among buckets, and also
+            //TODO: figure out how we're going tag the metadata on the buckets.
+            //TODO: we'll need to put a start_bucket that we dump the original into, if no preferred,
+            //TODO: and an original an preview buckets, and put them in there if they exist.
+            //TODO: and most likely we'll tag with "hasPreview", "hasOriginal", and "type"
+            ///s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
 
             return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
             //TODO: convert back to "Created" once we have an async angular form. For now, just do a hard-coded return
@@ -198,85 +195,7 @@ public class File {
         }
     }
 
-    private void processImageUpload( byte[] fileBuffer, BufferedImage bufferedImage, String filename,
-                                     String userId, ObjectMetadata fileMetadata,
-                                     AmazonS3Client s3Client ) throws IOException {
-        System.out.println("Detected an image upload, attempting to generate a preview.");
-        int width = bufferedImage.getWidth();
-        int previewWidth = 200;
-        int resizeWidth = 1024;
 
-        AtomicInteger previewContentLength = new AtomicInteger(0);
-        ByteArrayInputStream previewInputStream = shrinkImageToWidth(bufferedImage, previewWidth, previewContentLength);
-        ObjectMetadata previewMetadata = new ObjectMetadata();
-        previewMetadata.addUserMetadata("IsPreview", "true");
-        previewMetadata.addUserMetadata("IsPreviewOf", filename);
-        String publicField = fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD);
-        if( publicField != null ) {
-            previewMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
-        } else {
-            System.out.println("Public field was null?");
-        }
-        previewMetadata.setContentEncoding(fileMetadata.getContentEncoding());
-        previewMetadata.setContentLength(previewContentLength.get());
-        String previewKey = "/" + userId + "/" + "Preview-" + filename;
-        s3Client.putObject(S3_BUCKET, previewKey, previewInputStream, previewMetadata);
-        previewInputStream.close();
-
-        /**
-         * TODO: pull this out into an ImageProcessing class (factor out keys like "HasOriginal" while we're at it).
-         * (perhaps even an tryFile() method that returns an Image if it is one, and null otherwise)
-         * Also, have it create a FileList full of FileListEntries (see below).
-         * We'll need to wipe the S3 repo to rebuild it - since we're doing that, might as well create
-         * /image /[ type ] subcategory handling code, and start with that.
-         *
-         *THEN we can update the ShareMyStuff template to process the new itemlist entries, and
-         *     create previews w/ popup links, etc.
-         *
-         *NEXT - NOTES! Markdown! HTML! Might be a nice way to transition to the Learn page
-         *       (by creating tools for tutorial creation)
-         */
-        if( width > resizeWidth ) {
-            String originalKey = "/" + userId + "/" + "Original-" + filename;
-            AtomicInteger resizedContentLenth = new AtomicInteger(0);
-            ByteArrayInputStream resizedInputStream = shrinkImageToWidth(bufferedImage, resizeWidth, resizedContentLenth);
-            ObjectMetadata resizedMetadata = new ObjectMetadata();
-            resizedMetadata.addUserMetadata("HasOriginal", "true");
-            resizedMetadata.addUserMetadata("HasPreview", "true");
-            resizedMetadata.addUserMetadata("PreviewKey", previewKey);
-            resizedMetadata.addUserMetadata("OriginalKey",originalKey );
-            resizedMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
-            resizedMetadata.setContentEncoding(fileMetadata.getContentEncoding());
-            resizedMetadata.setContentLength(resizedContentLenth.get());
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, resizedInputStream, resizedMetadata);
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
-            fileMetadata.addUserMetadata("IsOriginal", "true");
-            s3Client.putObject(S3_BUCKET, originalKey, byteArrayInputStream, fileMetadata);
-        } else {
-            //basically, we just redeclare so the stream is reset
-            fileMetadata.addUserMetadata("HasOriginal", "false");
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
-        }
-    }
-
-    private ByteArrayInputStream shrinkImageToWidth( BufferedImage bufferedImage, int targetWidth,
-                                                     AtomicInteger returnInputStreamLength) throws IOException {
-        double previewRatio = (double)targetWidth / (double)bufferedImage.getWidth();
-        System.out.println("preview ratio: " + previewRatio);
-        System.out.println("Original height: " + bufferedImage.getHeight());
-        System.out.println("original width: " + bufferedImage.getWidth());
-        int previewHeight = (int)(previewRatio*bufferedImage.getHeight());
-        Image scaledImage = bufferedImage.getScaledInstance(targetWidth, previewHeight, BufferedImage.SCALE_SMOOTH);
-        BufferedImage preview = new BufferedImage(targetWidth, previewHeight, BufferedImage.TYPE_INT_RGB);
-        preview.createGraphics().drawImage(scaledImage, 0, 0, null);
-        ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
-        ImageIO.write(preview, "jpg", previewOutputStream);
-        byte[] outputBuffer = previewOutputStream.toByteArray();
-        ByteArrayInputStream scaledInputStream = new ByteArrayInputStream(outputBuffer);
-        returnInputStreamLength.set(outputBuffer.length);
-        return scaledInputStream;
-    }
 
     private Response getS3Object( AmazonS3Client s3Client, String itemPath ) {
         if( !itemPath.startsWith("/") ) {
@@ -384,63 +303,6 @@ public class File {
                                               @PathParam("access_token") String access_token)
     {
         return getFileGeneric(userId, filename, access_token );
-    }
-
-    public static class FileListEntry {
-
-        public boolean isPreview;
-        public boolean isOriginal;
-        public boolean hasPreview;
-        public boolean hasOriginal;
-        public String type;
-        public String link;
-        public String previewLink;
-        public String originalLink;
-
-        public FileListEntry( String link, String type ) {
-            this.link = link;
-            this.type = type;
-        }
-
-        public FileListEntry setIsPreview( boolean isPreview ) {
-            this.isPreview = isPreview;
-            return this;
-        }
-
-        public FileListEntry setHasPreview( boolean hasPreview ) {
-            this.hasPreview = hasPreview;
-            return this;
-        }
-
-        public FileListEntry setIsOriginal(boolean isOriginal) {
-            this.isOriginal = isOriginal;
-            return this;
-        }
-
-        public FileListEntry setHasOriginal(boolean hasOriginal) {
-            this.hasOriginal = hasOriginal;
-            return this;
-        }
-
-        public FileListEntry setType(String type) {
-            this.type = type;
-            return this;
-        }
-
-        public FileListEntry setLink(String link) {
-            this.link = link;
-            return this;
-        }
-
-        public FileListEntry setPreviewLink(String previewLink) {
-            this.previewLink = previewLink;
-            return this;
-        }
-
-        public FileListEntry setOriginalLink(String originalLink) {
-            this.originalLink = originalLink;
-            return this;
-        }
     }
 
     @GET

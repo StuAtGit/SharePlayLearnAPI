@@ -4,29 +4,20 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.google.gson.Gson;
+import com.shareplaylearn.models.UploadMetadataFields;
 import com.shareplaylearn.services.ImagePreprocessorPlugin;
 import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.services.UploadPreprocessor;
 import com.shareplaylearn.services.UploadPreprocessorPlugin;
-import org.glassfish.jersey.media.multipart.ContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
-import sun.misc.IOUtils;
 
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.InetAddress;
-import java.net.URI;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by stu on 4/14/15.
@@ -49,11 +40,6 @@ public class File {
     //limit retrieves to 0.5 GB for now (Tomcat should limit uploads to 2MB).
     //raise to 1 GB when we buy more memory (if needed)
     private static final int MAX_RETRIEVE_SIZE = (1024*1024*1024)/2;
-    static class FileMetadata {
-        public static final String PUBLIC_FIELD = "public";
-        public static final String IS_PUBLIC = "true";
-        public static final String NOT_PUBLIC = "false";
-    }
 
     @POST
     @Consumes( MediaType.APPLICATION_OCTET_STREAM )
@@ -144,39 +130,82 @@ public class File {
             if ((listCheck = this.checkObjectListingSize(userList, MAX_TOTAL_FILES)).getStatus() != Response.Status.OK.getStatusCode()) {
                 return listCheck;
             }
-
-            ObjectMetadata fileMetadata = new ObjectMetadata();
-            fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
-            fileMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, FileMetadata.NOT_PUBLIC);
-
             byte[] fileBuffer = org.apache.commons.io.IOUtils.toByteArray(filestream);
-            int fileLength = fileBuffer.length;
-            fileMetadata.setContentLength(fileLength);
-
-
-             /**
-             * This is pretty bad, but it works. We might want to move this check up (and factor the code into a method),
-             * so we can add a "HasPreview" : "Preview-name" to the original image.
-             * More importantly, the scaling kind of sucks right now - at least get the same aspect ratio, abouts.
-             * And a little bigger wouldn't hurt. As well as a medium sized image for BIG photos that we
-             * serve by default.
-             */
-
             //perhaps not the best way to check for an image, but it works!
             List<UploadPreprocessorPlugin> uploadPreprocessorPlugins = new ArrayList<>();
             uploadPreprocessorPlugins.add(new ImagePreprocessorPlugin());
             UploadPreprocessor uploadPreprocessor = new UploadPreprocessor( uploadPreprocessorPlugins );
             Map<String,byte[]> uploads = uploadPreprocessor.process(fileBuffer);
-            //TODO: now we have to split the uploads up among buckets, and also
-            //TODO: figure out how we're going tag the metadata on the buckets.
-            //TODO: we'll need to put a start_bucket that we dump the original into, if no preferred,
-            //TODO: and an original an preview buckets, and put them in there if they exist.
-            //TODO: and most likely we'll tag with "hasPreview", "hasOriginal", and "type"
+
+            if( uploads.size() == 0 ) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).
+                        entity("Upload processor returned empty upload set").build();
+            } else if( !uploads.containsKey(uploadPreprocessor.getPreferredTag()) ) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).
+                        entity("Upload processor had no preferred tag! Not sure what to do.").build();
+            }
+
+            byte[] preferredUpload = uploads.get(uploadPreprocessor.getPreferredTag());
+            boolean isPublic = false;
+            ObjectMetadata rootObjectMetadata = this.makeBasicMetadata(preferredUpload.length, isPublic);
+
+            if( uploadPreprocessor.getLastUsedProcessor() instanceof  ImagePreprocessorPlugin ) {
+                String displayHtml = "";
+
+                //So if it's not resized, then the original tag should be the preferred
+                //so only upload the original if the preferred tag is not the original
+                if (!uploadPreprocessor.getPreferredTag().equals(ImagePreprocessorPlugin.ORIGINAL_TAG)) {
+                    String originalKey = "/" + userId + "/" + ImagePreprocessorPlugin.ORIGINAL_TAG + "/" + filename;
+                    byte[] originalBuffer = uploads.get(ImagePreprocessorPlugin.ORIGINAL_TAG);
+                    ObjectMetadata originalMetadata = this.makeBasicMetadata( originalBuffer.length, isPublic );
+                    originalMetadata.addUserMetadata(UploadMetadataFields.IS_ORIGINAL, UploadMetadataFields.TRUE_VALUE);
+                    ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(originalBuffer);
+                    s3Client.putObject( S3_BUCKET, originalKey, byteArrayInputStream, originalMetadata );
+
+                    rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_ORIGINAL, UploadMetadataFields.TRUE_VALUE);
+                }
+
+                if (uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG)) {
+                    int previewHeight = ((ImagePreprocessorPlugin) uploadPreprocessor.
+                            getLastUsedProcessor()).getPreviewHeight();
+                    //TODO: sort out the file api to make this work correctly!
+                    displayHtml = "<a href=/some/path/to/preferred><img src=/some/path/to/preview alt=" +
+                            "\"" + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
+                            "\" height=\"" + previewHeight + "\" border=0 /></a>";
+                    byte[] previewBuffer = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
+                    ByteArrayInputStream previewStream = new ByteArrayInputStream(previewBuffer);
+                    ObjectMetadata previewMetadata = this.makeBasicMetadata(previewBuffer.length, isPublic);
+                    String previewKey = "/" + userId + "/" + ImagePreprocessorPlugin.PREVIEW_TAG + "/" + filename;
+                    s3Client.putObject( S3_BUCKET, previewKey, previewStream, previewMetadata );
+
+                    rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_PREVIEW, UploadMetadataFields.TRUE_VALUE);
+                } else {
+                    //TODO: Well, we should always have a preview for an image, so possible error here? DOn't for now.
+                    //displayHtml = "<a href=/some/path/to/preferred><img src=/some/path/to/preview alt=" +
+                    //        "\"" + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
+                    //        "\" height=\"" + previewHeight + "\" border=0 /></a>";
+                    displayHtml = "<a href=\"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item}}\">{{item}}</a>";
+                }
+
+                rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
+            } else {
+                //TODO: not quite right - we're using angular macros here!!! Do we want to fill in
+                //TODO: the user token? And we can't use the access token, because it's not relevant in this context
+                //TODO: (it's not the one we'll be displaying later).
+                //TODO: Consider Redoing link structure for how api/file works!!
+                String displayHtml = "<a href=\"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item}}\">{{item}}</a>";
+                rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
+            }
+            String rootObjectPath = "/" + userId + "/" + filename;
+            ByteArrayInputStream rootObjectStream = new ByteArrayInputStream(preferredUpload);
+            s3Client.putObject(S3_BUCKET, rootObjectPath, rootObjectStream, rootObjectMetadata);
+
+
             ///s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
 
             return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
             //TODO: convert back to "Created" once we have an async angular form. For now, just do a hard-coded return
-            //TODO: to the original page
+            //TODO: to the original page MAYBE just detect if we're not on a test server and choose appropriately!!
             //return Response.seeOther(URI.create("https://" + InetAddress.getLocalHost() + "/#/share/uploaded")).build();
         }
         catch( RuntimeException r )
@@ -195,7 +224,18 @@ public class File {
         }
     }
 
-
+    private ObjectMetadata makeBasicMetadata( int bufferLength, boolean isPublic ) {
+        ObjectMetadata fileMetadata = new ObjectMetadata();
+        fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
+        //TODO: wait until this is supposed to be an option before even risking setting this.
+//        if (isPublic) {
+//            fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
+//        } else {
+        fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.FALSE_VALUE);
+        //}
+        fileMetadata.setContentLength(bufferLength);
+        return fileMetadata;
+    }
 
     private Response getS3Object( AmazonS3Client s3Client, String itemPath ) {
         if( !itemPath.startsWith("/") ) {
@@ -257,7 +297,7 @@ public class File {
         //TODO: Handle valid ID with invalid S3 object (I had a cached filelist that pointed at files I deleted off S3)
         ObjectMetadata objectMetadata = s3Client.getObjectMetadata(S3_BUCKET, itemPath);
         if( access_token == null  || access_token.length() == 0 ) {
-            if(objectMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD) == FileMetadata.IS_PUBLIC) {
+            if(objectMetadata.getUserMetaDataOf(UploadMetadataFields.PUBLIC).equals(UploadMetadataFields.TRUE_VALUE)) {
                 return getS3Object(s3Client,filename);
             } else {
                 return Response.status(Response.Status.UNAUTHORIZED).entity("Not authorized").build();

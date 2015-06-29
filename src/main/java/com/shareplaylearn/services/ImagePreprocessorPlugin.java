@@ -23,9 +23,11 @@ public class ImagePreprocessorPlugin
     public static final int RESIZE_LIMIT = 1024;
     public static final String RESIZED_TAG = "resized";
     private String preferredTag;
+    private int previewHeight;
 
     public ImagePreprocessorPlugin() {
         this.imageBuffer = null;
+        this.previewHeight = -1;
         this.preferredTag = ORIGINAL_TAG;
     }
 
@@ -89,13 +91,17 @@ public class ImagePreprocessorPlugin
         System.out.println("preview ratio: " + previewRatio);
         System.out.println("Original height: " + bufferedImage.getHeight());
         System.out.println("original width: " + bufferedImage.getWidth());
-        int previewHeight = (int)(previewRatio*bufferedImage.getHeight());
+        this.previewHeight = (int)(previewRatio*bufferedImage.getHeight());
         Image scaledImage = bufferedImage.getScaledInstance(targetWidth, previewHeight, BufferedImage.SCALE_SMOOTH);
         BufferedImage preview = new BufferedImage(targetWidth, previewHeight, BufferedImage.TYPE_INT_RGB);
         preview.createGraphics().drawImage(scaledImage, 0, 0, null);
         ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
         ImageIO.write(preview, "jpg", previewOutputStream);
         return previewOutputStream.toByteArray();
+    }
+
+    public int getPreviewHeight() {
+        return this.previewHeight;
     }
 
  /*   private void processImageUpload( byte[] fileBuffer, BufferedImage bufferedImage, String filename,

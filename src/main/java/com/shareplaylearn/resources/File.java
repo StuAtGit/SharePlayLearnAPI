@@ -4,6 +4,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.google.gson.Gson;
+import com.shareplaylearn.models.FileListItem;
 import com.shareplaylearn.models.UploadMetadataFields;
 import com.shareplaylearn.services.ImagePreprocessorPlugin;
 import com.shareplaylearn.services.SecretsService;
@@ -168,10 +169,9 @@ public class File {
                 if (uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG)) {
                     int previewHeight = ((ImagePreprocessorPlugin) uploadPreprocessor.
                             getLastUsedProcessor()).getPreviewHeight();
-                    //TODO: sort out the file api to make this work correctly!
-                    displayHtml = "<a href=/some/path/to/preferred><img src=/some/path/to/preview alt=" +
+                    displayHtml = "<img src=/some/path/to/preview alt=" +
                             "\"" + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
-                            "\" height=\"" + previewHeight + "\" border=0 /></a>";
+                            "\" height=\"" + previewHeight + "\" border=0 />";
                     byte[] previewBuffer = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
                     ByteArrayInputStream previewStream = new ByteArrayInputStream(previewBuffer);
                     ObjectMetadata previewMetadata = this.makeBasicMetadata(previewBuffer.length, isPublic);
@@ -180,20 +180,12 @@ public class File {
 
                     rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_PREVIEW, UploadMetadataFields.TRUE_VALUE);
                 } else {
-                    //TODO: Well, we should always have a preview for an image, so possible error here? DOn't for now.
-                    //displayHtml = "<a href=/some/path/to/preferred><img src=/some/path/to/preview alt=" +
-                    //        "\"" + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
-                    //        "\" height=\"" + previewHeight + "\" border=0 /></a>";
-                    displayHtml = "<a href=\"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item}}\">{{item}}</a>";
+                    displayHtml = filename;
                 }
 
                 rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
             } else {
-                //TODO: not quite right - we're using angular macros here!!! Do we want to fill in
-                //TODO: the user token? And we can't use the access token, because it's not relevant in this context
-                //TODO: (it's not the one we'll be displaying later).
-                //TODO: Consider Redoing link structure for how api/file works!!
-                String displayHtml = "<a href=\"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item}}\">{{item}}</a>";
+                String displayHtml = filename;
                 rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
             }
             String rootObjectPath = "/" + userId + "/" + filename;
@@ -328,6 +320,8 @@ public class File {
      * OTOH, we might want to look into a limited scope token that just works for this. Handy for sharing,
      * and will make the links expire.
      *
+     * TODO: Deprecate this with angular click() intercept in template
+     *
      * Note: we flip the order of access_token & filename so the browser will save the file with the logical
      * name
      * @param userId
@@ -366,14 +360,16 @@ public class File {
         );
         ObjectListing objectListing = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
         Gson gson = new Gson();
-        List<String> objectNames = new ArrayList<>();
+        List<FileListItem> objectNames = new ArrayList<>();
         List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
         int prefixLength = ("/" + userId + "/").length();
         for( S3ObjectSummary objectSummary : objectSummaries ) {
             if( objectSummary.getKey().length() <= prefixLength ) {
                 continue;
             }
-            objectNames.add( objectSummary.getKey().substring( prefixLength ) );
+            String displayHtml = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
+                    .getUserMetaDataOf(UploadMetadataFields.DISPLAY_HTML);
+            objectNames.add( new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml ) );
         }
         return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();
     }

@@ -5,7 +5,7 @@
         <!-- TODO: previews when possible! -->
         <br/>
         <li ng-repeat="item in itemlist">
-            <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item}}">{{item}}</a>
+            <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}">{{item.displayHtml}}</a>
         </li>
     </ol>
     <br/>

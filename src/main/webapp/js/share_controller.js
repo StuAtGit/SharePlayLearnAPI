@@ -1,4 +1,10 @@
-var shareAppControllers = angular.module('shareAppControllers',[]);
+var shareAppControllers = angular.module('shareAppControllers',[]).config(function($sceProvider) {
+    //completely disable SCE because it sanitizes data that is *not*
+    //user-provided, and is *not* cross domain.
+    //Security through uselessness will always be disabled.
+    //TODO: eventually figure out how to work with angular's stupidity.
+    $sceProvider.enabled(false);
+});
 
 shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http', 
     function( $scope, $http ) {
@@ -34,7 +40,7 @@ shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
 
 
 shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routeParams',
-    function( $scope, $http, $routeParams ) {
+    function( $scope, $http, $routeParams) {
         checkLoginStatus($scope, document);
         document.getElementById("legacy-duck-game").style.display = "none";
 

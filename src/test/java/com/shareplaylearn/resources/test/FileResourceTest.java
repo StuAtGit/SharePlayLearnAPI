@@ -1,7 +1,10 @@
 package com.shareplaylearn.resources.test;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.shareplaylearn.models.FileListItem;
 import com.shareplaylearn.resources.File;
+import com.shareplaylearn.utilities.Exceptions;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -13,13 +16,12 @@ import org.apache.http.util.EntityUtils;
 
 import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by stu on 5/7/15.
@@ -59,6 +61,7 @@ public class FileResourceTest {
                     addTextBody("user_id", userId).
                     addTextBody("access_token", accessToken).build();
 
+            System.out.println("Testing upload of: " + uploadTest.toString());
             HttpPost httpPost = new HttpPost(BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + "/form");
             httpPost.setEntity(formEntity);
             try (CloseableHttpResponse response = (CloseableHttpResponse) httpClient.execute(httpPost)) {
@@ -143,9 +146,21 @@ public class FileResourceTest {
                     throw new RuntimeException("Error retrieving file list for user: " + this.userId + " " +
                             processedHttpResponse.completeMessage);
                 }
-                String[] filelist = new Gson().fromJson(processedHttpResponse.entity, String[].class);
-                Arrays.sort(filelist);
-                if (Arrays.binarySearch(filelist, uploadEntry.getKey()) < 0) {
+                List<FileListItem> filelist;
+                try {
+                    Type listType = new TypeToken<ArrayList<FileListItem>>(){}.getType();
+                    filelist = new Gson().fromJson(processedHttpResponse.entity, listType);
+                } catch (Throwable t) {
+                    throw new RuntimeException("Failed to parse response entity into json: " + processedHttpResponse.entity +
+                            "\n" + Exceptions.asString(t));
+                }
+                boolean found = false;
+                for( FileListItem item : filelist ) {
+                    if( item.getName().equals(uploadEntry.getKey()) ) {
+                        found = true;
+                    }
+                }
+                if (!found) {
                     throw new RuntimeException("Error: file list " + processedHttpResponse.entity + " did not contain test filename " +
                             uploadEntry.getKey());
                 }

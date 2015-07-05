@@ -4,12 +4,14 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.shareplaylearn.models.FileListItem;
 import com.shareplaylearn.models.UploadMetadataFields;
 import com.shareplaylearn.services.ImagePreprocessorPlugin;
 import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.services.UploadPreprocessor;
 import com.shareplaylearn.services.UploadPreprocessorPlugin;
+import com.shareplaylearn.utilities.Exceptions;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
@@ -17,6 +19,7 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.*;
+import java.net.InetAddress;
 import java.util.*;
 import java.util.List;
 
@@ -169,15 +172,17 @@ public class File {
                 if (uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG)) {
                     int previewHeight = ((ImagePreprocessorPlugin) uploadPreprocessor.
                             getLastUsedProcessor()).getPreviewHeight();
-                    displayHtml = "<img src=/some/path/to/preview alt=" +
-                            "\"" + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
+                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename;
+                    String previewKey = "/" + userId + "/" + previewFilename;
+                    //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
+                    displayHtml = "<img src=/api/file/" + userId + "/public/" + previewFilename + " alt=" +
+                            "\"preview of " + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
                             "\" height=\"" + previewHeight + "\" border=0 />";
                     byte[] previewBuffer = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
                     ByteArrayInputStream previewStream = new ByteArrayInputStream(previewBuffer);
                     ObjectMetadata previewMetadata = this.makeBasicMetadata(previewBuffer.length, isPublic);
-                    String previewKey = "/" + userId + "/" + ImagePreprocessorPlugin.PREVIEW_TAG + "/" + filename;
+                    previewMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
                     s3Client.putObject( S3_BUCKET, previewKey, previewStream, previewMetadata );
-
                     rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_PREVIEW, UploadMetadataFields.TRUE_VALUE);
                 } else {
                     displayHtml = filename;
@@ -194,7 +199,7 @@ public class File {
 
 
             ///s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
-
+            System.out.println("Get localhost: " + InetAddress.getLocalHost());
             return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
             //TODO: convert back to "Created" once we have an async angular form. For now, just do a hard-coded return
             //TODO: to the original page MAYBE just detect if we're not on a test server and choose appropriately!!
@@ -286,13 +291,25 @@ public class File {
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
-        //TODO: Handle valid ID with invalid S3 object (I had a cached filelist that pointed at files I deleted off S3)
         ObjectMetadata objectMetadata = s3Client.getObjectMetadata(S3_BUCKET, itemPath);
-        if( access_token == null  || access_token.length() == 0 ) {
-            if(objectMetadata.getUserMetaDataOf(UploadMetadataFields.PUBLIC).equals(UploadMetadataFields.TRUE_VALUE)) {
-                return getS3Object(s3Client,filename);
+        if( access_token == null  || access_token.length() == 0 || access_token.equals("public")) {
+            String isPublic = objectMetadata.getUserMetaDataOf(UploadMetadataFields.PUBLIC);
+            /**
+             * TOOD: fix this mess.
+             *       (a) We should fail if isPublic is null - why is it null?
+             *       (b) path to preview should not be public by default
+             *       (c) path should not be using access token
+             *       (d) access token should be invalidated upon logout, if possible.
+             */
+            if( isPublic == null || isPublic.equals(UploadMetadataFields.TRUE_VALUE)) {
+                try {
+                    return getS3Object(s3Client, itemPath);
+                } catch (Throwable t) {
+                    return Response.status(Response.Status.BAD_REQUEST).entity("Amazon has failed us, for key: " +
+                            filename + "\n" + Exceptions.asString(t)).build();
+                }
             } else {
-                return Response.status(Response.Status.UNAUTHORIZED).entity("Not authorized").build();
+                return Response.status(Response.Status.UNAUTHORIZED).entity("Not authorized " + isPublic).build();
             }
         }
         else
@@ -359,16 +376,19 @@ public class File {
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
         ObjectListing objectListing = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
         List<FileListItem> objectNames = new ArrayList<>();
         List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
         int prefixLength = ("/" + userId + "/").length();
         for( S3ObjectSummary objectSummary : objectSummaries ) {
             if( objectSummary.getKey().length() <= prefixLength ) {
+                System.out.println( "Item in S3 that appears only be a user directory: " + objectSummary.getKey() );
                 continue;
             }
+
             String displayHtml = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
                     .getUserMetaDataOf(UploadMetadataFields.DISPLAY_HTML);
+            System.out.println( "Display html of: " + objectSummary.getKey() + ": " + displayHtml);
             objectNames.add( new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml ) );
         }
         return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();

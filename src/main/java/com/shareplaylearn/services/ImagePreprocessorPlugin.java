@@ -43,7 +43,12 @@ public class ImagePreprocessorPlugin
         //next - ImageIO.getScaledInstance is supposed to be a bit slow (but this info may be outdated?)
         //https://stackoverflow.com/questions/4220612/scaling-images-with-java-jai
         //https://github.com/thebuzzmedia/imgscalr/blob/master/src/main/java/org/imgscalr/Scalr.java
-        return toImageInputStream(fileBuffer) != null;
+        try {
+            return ImageIO.read(toImageInputStream(fileBuffer)) != null;
+        } catch (IOException e) {
+            System.out.println("Cannot processing filebuffer in Image Plugin because of exception " + e.getMessage());
+            return false;
+        }
     }
 
     @Override
@@ -73,7 +78,7 @@ public class ImagePreprocessorPlugin
                 e.printStackTrace();
             }
         }
-        return null;
+        return uploadList;
     }
 
     private ImageInputStream toImageInputStream( byte[] fileBuffer ) {

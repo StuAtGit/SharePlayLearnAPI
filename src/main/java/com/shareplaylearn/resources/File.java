@@ -300,6 +300,8 @@ public class File {
              *       (b) path to preview should not be public by default
              *       (c) path should not be using access token
              *       (d) access token should be invalidated upon logout, if possible.
+             *       (e) layout of previews should be flow
+             *       (f) try to figure out how to work with angular's SCE stuff.
              */
             if( isPublic == null || isPublic.equals(UploadMetadataFields.TRUE_VALUE)) {
                 try {

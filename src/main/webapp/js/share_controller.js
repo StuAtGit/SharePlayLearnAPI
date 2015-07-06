@@ -75,8 +75,8 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routePar
                 ).error(
                     function( data, status, headers, config, statusText ) {
                         if( status == 401 ) {
-                            alert( "Not authorized to access your files? Did something go wrong with the login?" +
-                            JSON.stringify(data) );
+                            alert( "Not authorized to access your files? Did your login expire? (Try logging out and logging in)");
+                            //JSON.stringify(data) );
                         }
                         else if( status != 400 ) {
                             alert(status + " " + statusText);
@@ -110,7 +110,7 @@ var setCurrentUser = function ( username, document ) {
 
         document.getElementById("current-user")
             .appendChild(
-            document.createTextNode("Logged in as: " + username)
+            document.createTextNode("Logged in as: " + username )
         );
     }
 

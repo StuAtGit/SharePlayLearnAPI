@@ -155,6 +155,7 @@ public class File {
             boolean isPublic = false;
             ObjectMetadata rootObjectMetadata = this.makeBasicMetadata(preferredUpload.length, isPublic);
 
+            boolean beenResized = false;
             if( uploadPreprocessor.getLastUsedProcessor() instanceof  ImagePreprocessorPlugin ) {
                 String displayHtml = "";
 
@@ -169,12 +170,13 @@ public class File {
                     s3Client.putObject( S3_BUCKET, originalKey, byteArrayInputStream, originalMetadata );
 
                     rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_ORIGINAL, UploadMetadataFields.TRUE_VALUE);
+                    beenResized = true;
                 }
 
                 if (uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG)) {
                     int previewHeight = ((ImagePreprocessorPlugin) uploadPreprocessor.
                             getLastUsedProcessor()).getLastPreviewHeight();
-                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename + ".png";
+                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename + ".jpg";
                     String previewKey = "/" + userId + "/" + previewFilename;
                     //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
                     displayHtml = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
@@ -194,6 +196,11 @@ public class File {
             } else {
                 String displayHtml = filename;
                 rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
+            }
+
+            //if we resized, then it's a jpg now.
+            if( beenResized ) {
+                filename += ".jpg";
             }
             String rootObjectPath = "/" + userId + "/" + filename;
             ByteArrayInputStream rootObjectStream = new ByteArrayInputStream(preferredUpload);

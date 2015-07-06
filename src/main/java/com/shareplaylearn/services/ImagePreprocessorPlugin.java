@@ -110,7 +110,7 @@ public class ImagePreprocessorPlugin
         BufferedImage preview = new BufferedImage(targetWidth, previewHeight, BufferedImage.TYPE_INT_RGB);
         preview.createGraphics().drawImage(scaledImage, 0, 0, null);
         ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
-        ImageIO.write(preview, "png", previewOutputStream);
+        ImageIO.write(preview, "jpg", previewOutputStream);
         return previewOutputStream.toByteArray();
     }
 

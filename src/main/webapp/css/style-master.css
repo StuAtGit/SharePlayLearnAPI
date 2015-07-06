@@ -34,6 +34,11 @@ input {
     margin-left: 4em;
 }
 
+#current-user {
+    font-weight: bold;
+    padding-bottom: 0.4em;
+}
+
 .upload-file-select {
     /*float: right;*/
     margin-top: 0.5em;
@@ -46,6 +51,7 @@ input {
     margin-top:0.7em;
     display: inline-block;
     vertical-align: middle;
+    margin-bottom: 0.6em;
 }
 
 .header {

@@ -7,10 +7,12 @@ public class FileListItem {
 
     private String displayHtml;
     private String name;
+    private String accessToken;
 
     public FileListItem( String name, String displayHtml ) {
         this.name = name;
         this.displayHtml = displayHtml;
+        this.accessToken = "";
     }
 
     public String getDisplayHtml() {
@@ -28,6 +30,15 @@ public class FileListItem {
 
     public FileListItem setName(String name) {
         this.name = name;
+        return this;
+    }
+
+    public String getAccessToken( ) {
+        return this.accessToken;
+    }
+
+    public FileListItem setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
         return this;
     }
 }

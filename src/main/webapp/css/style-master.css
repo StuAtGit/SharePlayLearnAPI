@@ -88,3 +88,7 @@ input {
     float: left;
     padding: 1em 0em 0 0;
 }
+
+.itemlist {
+    padding: 0em 0em 1em 0.7em;
+}

@@ -7,10 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.shareplaylearn.models.FileListItem;
 import com.shareplaylearn.models.UploadMetadataFields;
-import com.shareplaylearn.services.ImagePreprocessorPlugin;
-import com.shareplaylearn.services.SecretsService;
-import com.shareplaylearn.services.UploadPreprocessor;
-import com.shareplaylearn.services.UploadPreprocessorPlugin;
+import com.shareplaylearn.services.*;
 import com.shareplaylearn.utilities.Exceptions;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
@@ -20,6 +17,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.*;
 import java.net.InetAddress;
+import java.net.URI;
 import java.util.*;
 import java.util.List;
 
@@ -30,7 +28,11 @@ import java.util.List;
 public class File {
 
     private static final String S3_BUCKET = "shareplaylearn";
+    //we store this in the display html to indicate the token should be replaced
+    //when sent to the user.
+    private static final String ACCESS_TOKEN_MARKER = "{{ACCESS_TOKEN}}";
     public static final String RESOURCE_BASE = "/file";
+
     /**
      * With 2MB default upload limit on tomcat, this comes to about:
      * 1000*2MB ~ 2GB of data stored at any given time.
@@ -175,13 +177,13 @@ public class File {
                     String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename;
                     String previewKey = "/" + userId + "/" + previewFilename;
                     //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
-                    displayHtml = "<img src=/api/file/" + userId + "/public/" + previewFilename + " alt=" +
+                    displayHtml = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
                             "\"preview of " + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
                             "\" height=\"" + previewHeight + "\" border=0 />";
                     byte[] previewBuffer = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
                     ByteArrayInputStream previewStream = new ByteArrayInputStream(previewBuffer);
                     ObjectMetadata previewMetadata = this.makeBasicMetadata(previewBuffer.length, isPublic);
-                    previewMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
+                    //previewMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
                     s3Client.putObject( S3_BUCKET, previewKey, previewStream, previewMetadata );
                     rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_PREVIEW, UploadMetadataFields.TRUE_VALUE);
                 } else {
@@ -200,10 +202,17 @@ public class File {
 
             ///s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
             System.out.println("Get localhost: " + InetAddress.getLocalHost());
-            return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId).build();
-            //TODO: convert back to "Created" once we have an async angular form. For now, just do a hard-coded return
-            //TODO: to the original page MAYBE just detect if we're not on a test server and choose appropriately!!
-            //return Response.seeOther(URI.create("https://" + InetAddress.getLocalHost() + "/#/share/uploaded")).build();
+            String[] host = InetAddress.getLocalHost().toString().split("/");
+            if( host[0].trim().length() == 0 ) {
+                return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId + " " + InetAddress.getLocalHost()).build();
+            } else {
+                String hostname = host[0].trim().toLowerCase();
+                if( !hostname.equals("shareplaylearn.com") && !hostname.equals("shareplaylearn.net") ) {
+                    hostname = "localhost";
+                    //Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId + " " + hostname;
+                }
+                return Response.seeOther(URI.create("https://" + hostname + "/#/share")).build();
+            }
         }
         catch( RuntimeException r )
         {
@@ -224,12 +233,11 @@ public class File {
     private ObjectMetadata makeBasicMetadata( int bufferLength, boolean isPublic ) {
         ObjectMetadata fileMetadata = new ObjectMetadata();
         fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
-        //TODO: wait until this is supposed to be an option before even risking setting this.
-//        if (isPublic) {
-//            fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
-//        } else {
-        fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.FALSE_VALUE);
-        //}
+        if (isPublic) {
+            fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
+        } else {
+            fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.FALSE_VALUE);
+        }
         fileMetadata.setContentLength(bufferLength);
         return fileMetadata;
     }
@@ -295,15 +303,16 @@ public class File {
         if( access_token == null  || access_token.length() == 0 || access_token.equals("public")) {
             String isPublic = objectMetadata.getUserMetaDataOf(UploadMetadataFields.PUBLIC);
             /**
-             * TOOD: fix this mess.
-             *       (a) We should fail if isPublic is null - why is it null?
-             *       (b) path to preview should not be public by default
-             *       (c) path should not be using access token
-             *       (d) access token should be invalidated upon logout, if possible.
-             *       (e) layout of previews should be flow
-             *       (f) try to figure out how to work with angular's SCE stuff.
+             * TODO: fix this mess.
+             *       (a) preview height is incorrect for some images (e.g. Disneyland)
+             *       (b) tests should work with seeOther return from File upload endpoint
+             *       (c) seeOther loses session!
+             *       (e) path should not be using access token
+             *       (e) access token should be invalidated upon logout, if possible.
+             *       (f) layout of previews should be a responsive grid
+             *       (g) try to figure out how to work with angular's SCE stuff.
              */
-            if( isPublic == null || isPublic.equals(UploadMetadataFields.TRUE_VALUE)) {
+            if( isPublic != null && isPublic.equals(UploadMetadataFields.TRUE_VALUE)) {
                 try {
                     return getS3Object(s3Client, itemPath);
                 } catch (Throwable t) {
@@ -382,6 +391,7 @@ public class File {
         List<FileListItem> objectNames = new ArrayList<>();
         List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
         int prefixLength = ("/" + userId + "/").length();
+        StoredTokenService storedTokenService = new StoredTokenService();
         for( S3ObjectSummary objectSummary : objectSummaries ) {
             if( objectSummary.getKey().length() <= prefixLength ) {
                 System.out.println( "Item in S3 that appears only be a user directory: " + objectSummary.getKey() );
@@ -390,7 +400,15 @@ public class File {
 
             String displayHtml = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
                     .getUserMetaDataOf(UploadMetadataFields.DISPLAY_HTML);
-            System.out.println( "Display html of: " + objectSummary.getKey() + ": " + displayHtml);
+            //previews don't have display html - the display html of the objects points at the preview.
+            if( displayHtml == null || displayHtml.trim().length() == 0) {
+                continue;
+            }
+            System.out.println("Display html of: " + objectSummary.getKey() + ": " + displayHtml);
+            if( displayHtml != null && displayHtml.contains(ACCESS_TOKEN_MARKER) ) {
+                    displayHtml = displayHtml.replace(ACCESS_TOKEN_MARKER,
+                            storedTokenService.getStoredToken(userId, "", authorization));
+            }
             objectNames.add( new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml ) );
         }
         return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();

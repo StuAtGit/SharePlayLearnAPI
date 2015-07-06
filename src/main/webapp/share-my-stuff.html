@@ -4,11 +4,11 @@
     <ol>
         <!-- TODO: previews when possible! -->
         <br/>
-        <li ng-repeat="item in itemlist">
+        <div ng-repeat="item in itemlist" class="itemlist">
             <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}">
                 <span ng-bind-html="item.displayHtml"></span>
             </a>
-        </li>
+        </div>
     </ol>
     <br/>
     <hr width="100%" size="0.3em"/>

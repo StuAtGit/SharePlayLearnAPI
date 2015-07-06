@@ -23,11 +23,16 @@ public class ImagePreprocessorPlugin
     public static final int RESIZE_LIMIT = 1024;
     public static final String RESIZED_TAG = "resized";
     private String preferredTag;
-    private int previewHeight;
+    //set when we calculate a preview
+    private int lastPreviewHeight;
+    //always set when we adjust the height,
+    //just used for the methods to talk internally
+    private int lastHeight;
 
     public ImagePreprocessorPlugin() {
         this.imageBuffer = null;
-        this.previewHeight = -1;
+        this.lastPreviewHeight = -1;
+        this.lastHeight = -1;
         this.preferredTag = ORIGINAL_TAG;
     }
 
@@ -64,6 +69,7 @@ public class ImagePreprocessorPlugin
             originalWidth = bufferedImage.getWidth();
             byte[] previewBuffer = shrinkImageToWidth(bufferedImage, PREVIEW_WIDTH);
             uploadList.put(PREVIEW_TAG, previewBuffer);
+            this.lastPreviewHeight = this.lastHeight;
         } catch( IOException e ) {
             System.out.println(Exceptions.asString(e));
         }
@@ -94,19 +100,23 @@ public class ImagePreprocessorPlugin
     private byte[] shrinkImageToWidth( BufferedImage bufferedImage, int targetWidth) throws IOException {
         double previewRatio = (double)targetWidth / (double)bufferedImage.getWidth();
         System.out.println("preview ratio: " + previewRatio);
+        System.out.println("Target width: " + targetWidth);
         System.out.println("Original height: " + bufferedImage.getHeight());
         System.out.println("original width: " + bufferedImage.getWidth());
-        this.previewHeight = (int)(previewRatio*bufferedImage.getHeight());
+        int previewHeight = (int)(previewRatio*bufferedImage.getHeight());
+        this.lastHeight = previewHeight;
+        System.out.println("preview height: " + previewHeight);
         Image scaledImage = bufferedImage.getScaledInstance(targetWidth, previewHeight, BufferedImage.SCALE_SMOOTH);
         BufferedImage preview = new BufferedImage(targetWidth, previewHeight, BufferedImage.TYPE_INT_RGB);
         preview.createGraphics().drawImage(scaledImage, 0, 0, null);
         ByteArrayOutputStream previewOutputStream = new ByteArrayOutputStream();
-        ImageIO.write(preview, "jpg", previewOutputStream);
+        ImageIO.write(preview, "png", previewOutputStream);
         return previewOutputStream.toByteArray();
     }
 
-    public int getPreviewHeight() {
-        return this.previewHeight;
+    public int getLastPreviewHeight() {
+        System.out.println("Returning a preview height of " + this.lastPreviewHeight);
+        return this.lastPreviewHeight;
     }
 
  /*   private void processImageUpload( byte[] fileBuffer, BufferedImage bufferedImage, String filename,

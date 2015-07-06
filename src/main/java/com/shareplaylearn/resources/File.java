@@ -173,8 +173,8 @@ public class File {
 
                 if (uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG)) {
                     int previewHeight = ((ImagePreprocessorPlugin) uploadPreprocessor.
-                            getLastUsedProcessor()).getPreviewHeight();
-                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename;
+                            getLastUsedProcessor()).getLastPreviewHeight();
+                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename + ".png";
                     String previewKey = "/" + userId + "/" + previewFilename;
                     //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
                     displayHtml = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
@@ -209,9 +209,9 @@ public class File {
                 String hostname = host[0].trim().toLowerCase();
                 if( !hostname.equals("shareplaylearn.com") && !hostname.equals("shareplaylearn.net") ) {
                     hostname = "localhost";
-                    //Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId + " " + hostname;
                 }
-                return Response.seeOther(URI.create("https://" + hostname + "/#/share")).build();
+                return Response.status(Response.Status.CREATED).
+                        entity(this.generateBackPage(filename, userId)).build();
             }
         }
         catch( RuntimeException r )
@@ -228,6 +228,41 @@ public class File {
             t.printStackTrace(pw);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
         }
+    }
+
+    /**
+     * Messy. But returning seeOther() from uploadForm post:
+     *  (a) invalidates the login (at least in Firefox). Looks like it clears the session cache due to redirect.
+     *  (b) isn't really "correct" return value.
+     *  (c) the real fix is to async the upload form.
+     * @return
+     */
+    private String generateBackPage( String filename, String userId ) {
+        StringBuffer backPage = new StringBuffer();
+        backPage.append("<html>\n<head>");
+        backPage.append("<link rel=\"stylesheet\" href=\"../../css/style-master.css\" type=\"text/css\">");
+        backPage.append("</head><body>");
+        backPage.append("        <div class=\"header\">\n" +
+                "            <ul>\n" +
+                "                <li class=\"header-section\">\n" +
+                "                    <a href=\"../../#/share\">Share</a>\n" +
+                "                </li>\n" +
+                "                <li class=\"header-section\">\n" +
+                "                    <a href=\"../../#/play\">Play</a>\n" +
+                "                </li>\n" +
+                "                <li class=\"header-section\">\n" +
+                "                    <a href=\"../../#\">Learn</a>\n" +
+                "                </li>\n" +
+                "                <li class=\"login\">\n" +
+                "                    <a href=\"../../#/login\" id=\"login-control\">Login</a>\n" +
+                "                    <a href=\"../../#/logout\" id=\"logout-control\" style=\"display:none;\">Logout</a>\n" +
+                "                </li>\n" +
+                "            </ul>\n" +
+                "            \n" +
+                "        </div>");
+        backPage.append("<div id='wrap'><div class='app-content'>" + filename + " saved!</div></div>");
+        backPage.append("</body></html>");
+        return backPage.toString();
     }
 
     private ObjectMetadata makeBasicMetadata( int bufferLength, boolean isPublic ) {
@@ -304,10 +339,10 @@ public class File {
             String isPublic = objectMetadata.getUserMetaDataOf(UploadMetadataFields.PUBLIC);
             /**
              * TODO: fix this mess.
-             *       (a) preview height is incorrect for some images (e.g. Disneyland)
-             *       (b) tests should work with seeOther return from File upload endpoint
-             *       (c) seeOther loses session!
-             *       (e) path should not be using access token
+             *       (e) path should not be using access token.
+             *                - equivalent lifetime token
+             *                - token to share with specific users??? (might use a different approach then this for sharing)
+             *                - perma-token for shareable, but not fully public, links.
              *       (e) access token should be invalidated upon logout, if possible.
              *       (f) layout of previews should be a responsive grid
              *       (g) try to figure out how to work with angular's SCE stuff.

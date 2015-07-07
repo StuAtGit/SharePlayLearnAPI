@@ -248,6 +248,8 @@ public class File {
             return UploadMetadataFields.FALSE_VALUE;
         }
     }
+
+    //TODO: not what we're getting from S3 in test (old stuff)
     private String generatePreviewHtml(String userId, String previewFilename
             , String filename, int previewHeight) {
         StringBuilder previewTag = new StringBuilder();
@@ -492,8 +494,9 @@ public class File {
                             storedTokenService.getStoredToken(userId, "", authorization));
             }
             FileListItem fileListItem = new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml );
-            boolean hasOnClick = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
-                    .getUserMetaDataOf(UploadMetadataFields.HAS_ON_CLICK).equals(UploadMetadataFields.TRUE_VALUE);
+            String hasOnClickVal = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
+                    .getUserMetaDataOf(UploadMetadataFields.HAS_ON_CLICK);
+            boolean hasOnClick = hasOnClickVal != null &&  hasOnClickVal.equals(UploadMetadataFields.TRUE_VALUE);
             String onClick = "";
             if( hasOnClick ) {
                 onClick = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())

@@ -469,29 +469,38 @@ public class File {
         List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
         int prefixLength = ("/" + userId + "/").length();
         StoredTokenService storedTokenService = new StoredTokenService();
+        /**
+         * Maybe we can stream this out??? Sloww.. get some perf logs in here.
+         * Fast on my phone, though?
+         */
         for( S3ObjectSummary objectSummary : objectSummaries ) {
+            String displayHtml = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
+                    .getUserMetaDataOf(UploadMetadataFields.DISPLAY_HTML);
+
+            //previews don't have display html - the display html of the objects points at the preview.
+            if( displayHtml == null || displayHtml.trim().length() == 0) {
+                continue;
+            }
             if( objectSummary.getKey().length() <= prefixLength ) {
                 System.out.println( "Item in S3 that appears only be a user directory: " + objectSummary.getKey() );
                 continue;
             }
 
-            String displayHtml = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
-                    .getUserMetaDataOf(UploadMetadataFields.DISPLAY_HTML);
-            //previews don't have display html - the display html of the objects points at the preview.
-            if( displayHtml == null || displayHtml.trim().length() == 0) {
-                continue;
-            }
             System.out.println("Display html of: " + objectSummary.getKey() + ": " + displayHtml);
             if( displayHtml != null && displayHtml.contains(ACCESS_TOKEN_MARKER) ) {
                     displayHtml = displayHtml.replace(ACCESS_TOKEN_MARKER,
                             storedTokenService.getStoredToken(userId, "", authorization));
             }
             FileListItem fileListItem = new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml );
-
-            /** TODO: retrieve from S3 and set
-            fileListItem.setHasOnClick();
-            fileListItem.setOnClick();
-            **/
+            boolean hasOnClick = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
+                    .getUserMetaDataOf(UploadMetadataFields.HAS_ON_CLICK).equals(UploadMetadataFields.TRUE_VALUE);
+            String onClick = "";
+            if( hasOnClick ) {
+                onClick = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
+                        .getUserMetaDataOf(UploadMetadataFields.ON_CLICK);
+                fileListItem.setOnClick(onClick);
+            }
+            fileListItem.setHasOnClick(hasOnClick);
             objectNames.add( fileListItem );
         }
         return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();

@@ -17,7 +17,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.*;
 import java.net.InetAddress;
-import java.net.URI;
 import java.util.*;
 import java.util.List;
 
@@ -28,6 +27,8 @@ import java.util.List;
 public class File {
 
     private static final String S3_BUCKET = "shareplaylearn";
+    private static final String MODAL_DIV_ID = "OpenImageModal";
+    private static final String MODAL_IMAGE_CLASS = "modalImagePopup";
     //we store this in the display html to indicate the token should be replaced
     //when sent to the user.
     private static final String ACCESS_TOKEN_MARKER = "{{ACCESS_TOKEN}}";
@@ -156,8 +157,11 @@ public class File {
             ObjectMetadata rootObjectMetadata = this.makeBasicMetadata(preferredUpload.length, isPublic);
 
             boolean beenResized = false;
+            boolean hasOnClick = false;
+            String onClick = "";
+            String displayHtml = "";
+
             if( uploadPreprocessor.getLastUsedProcessor() instanceof  ImagePreprocessorPlugin ) {
-                String displayHtml = "";
 
                 //So if it's not resized, then the original tag should be the preferred
                 //so only upload the original if the preferred tag is not the original
@@ -176,36 +180,36 @@ public class File {
                 if (uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG)) {
                     int previewHeight = ((ImagePreprocessorPlugin) uploadPreprocessor.
                             getLastUsedProcessor()).getLastPreviewHeight();
-                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename + ".jpg";
+                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename;
+                    if( !previewFilename.endsWith(".jpg") ) {
+                        previewFilename += ".jpg";
+                    }
                     String previewKey = "/" + userId + "/" + previewFilename;
-                    //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
-                    displayHtml = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
-                            "\"preview of " + filename + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"" +
-                            "\" height=\"" + previewHeight + "\" border=0 />";
+                    displayHtml = this.generatePreviewHtml(userId, previewFilename, filename, previewHeight);
+                    hasOnClick = true;
+                    onClick = "#" + MODAL_DIV_ID;
                     byte[] previewBuffer = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
                     ByteArrayInputStream previewStream = new ByteArrayInputStream(previewBuffer);
                     ObjectMetadata previewMetadata = this.makeBasicMetadata(previewBuffer.length, isPublic);
-                    //previewMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
                     s3Client.putObject( S3_BUCKET, previewKey, previewStream, previewMetadata );
                     rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_PREVIEW, UploadMetadataFields.TRUE_VALUE);
                 } else {
                     displayHtml = filename;
                 }
-
-                rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
             } else {
-                String displayHtml = filename;
-                rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
+                displayHtml = filename;
             }
+            rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
+            rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_ON_CLICK, amazonBoolean(hasOnClick));
+            rootObjectMetadata.addUserMetadata(UploadMetadataFields.ON_CLICK, onClick);
 
             //if we resized, then it's a jpg now.
-            if( beenResized ) {
+            if( !filename.endsWith(".jpg") && beenResized ) {
                 filename += ".jpg";
             }
             String rootObjectPath = "/" + userId + "/" + filename;
             ByteArrayInputStream rootObjectStream = new ByteArrayInputStream(preferredUpload);
             s3Client.putObject(S3_BUCKET, rootObjectPath, rootObjectStream, rootObjectMetadata);
-
 
             ///s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
             System.out.println("Get localhost: " + InetAddress.getLocalHost());
@@ -237,6 +241,35 @@ public class File {
         }
     }
 
+    private String amazonBoolean( boolean val ) {
+        if( val ) {
+            return UploadMetadataFields.TRUE_VALUE;
+        } else {
+            return UploadMetadataFields.FALSE_VALUE;
+        }
+    }
+    private String generatePreviewHtml(String userId, String previewFilename
+            , String filename, int previewHeight) {
+        StringBuilder previewTag = new StringBuilder();
+        //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
+        previewTag.append( this.generateImageLink(userId, previewFilename, "preview of " + filename, previewHeight));
+        //TODO: we'll set this objects onClick to #openModal
+        previewTag.append("<div id='" + MODAL_DIV_ID + "' class='" + MODAL_IMAGE_CLASS + "'>");
+        previewTag.append( this.generateImageLink(userId, filename, "Picture of " + filename, -1));
+        previewTag.append("</div>");
+        return previewTag.toString();
+    }
+
+    private String generateImageLink(String userId, String previewFilename, String altText, int imageHeight) {
+        String imageLink = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
+                "\"" + altText + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"";
+        if( imageHeight > 0 ) {
+            imageLink += "\" height=\"" + imageHeight + "\" border=0 />";
+        } else {
+            imageLink += " border=0 />";
+        }
+        return imageLink;
+    }
     /**
      * Messy. But returning seeOther() from uploadForm post:
      *  (a) invalidates the login (at least in Firefox). Looks like it clears the session cache due to redirect.
@@ -345,13 +378,15 @@ public class File {
         if( access_token == null  || access_token.length() == 0 || access_token.equals("public")) {
             String isPublic = objectMetadata.getUserMetaDataOf(UploadMetadataFields.PUBLIC);
             /**
-             * TODO: fix this mess.
+             * TODO: (note we have an untested change above to not add jpg if the filename already ends with it)
              *       (e) path should not be using access token.
              *                - equivalent lifetime token
              *                - token to share with specific users??? (might use a different approach then this for sharing)
              *                - perma-token for shareable, but not fully public, links.
              *       (e) access token should be invalidated upon logout, if possible.
-             *       (f) layout of previews should be a responsive grid
+             *       (f) we need a in-line div "pop-up" of items that we know how to display
+             *          (like images or markdown or text)
+             *       (f) layout of previews should be a responsive grid .. or not?
              *       (g) try to figure out how to work with angular's SCE stuff.
              */
             if( isPublic != null && isPublic.equals(UploadMetadataFields.TRUE_VALUE)) {
@@ -451,7 +486,13 @@ public class File {
                     displayHtml = displayHtml.replace(ACCESS_TOKEN_MARKER,
                             storedTokenService.getStoredToken(userId, "", authorization));
             }
-            objectNames.add( new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml ) );
+            FileListItem fileListItem = new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml );
+
+            /** TODO: retrieve from S3 and set
+            fileListItem.setHasOnClick();
+            fileListItem.setOnClick();
+            **/
+            objectNames.add( fileListItem );
         }
         return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();
     }

@@ -5,8 +5,14 @@
         <!-- TODO: previews when possible! -->
         <br/>
         <div ng-repeat="item in itemlist" class="itemlist">
+            <!-- FileListItem will usually just have #openModal,
+             and then have <div id="openModal" class=modalXXXPopup> </div>
+             as display html-->
+            <a href="item.onClick" ng-if="item.hasOnClick">
+                <div ng-bind-html="item.displayHtml"></div>
+            </a>
             <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}">
-                <span ng-bind-html="item.displayHtml"></span>
+                <div ng-bind-html="item.displayHtml"></div>
             </a>
         </div>
     </ol>

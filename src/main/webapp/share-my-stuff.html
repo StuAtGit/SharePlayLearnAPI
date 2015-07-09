@@ -9,7 +9,7 @@
              and then have <div id="openModal" class=modalXXXPopup> </div>
              <a href="/#/share#{{item.onClick}}" ng-click="gotoAnchorHash(item.onClick)" ng-if="item.hasOnClick">
              as display html-->
-            <a href="" ng-click="setOpacity(item.onClick,1)" ng-if="item.hasOnClick">
+            <a href="" ng-click="toggleOpacity(item.onClick,1)" ng-if="item.hasOnClick">
                 <div ng-bind-html="item.displayHtml"></div>
             </a>
             <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}" ng-if="!item.hasOnClick">

@@ -261,10 +261,10 @@ public class File {
          * We're really starting to tightly couple the presentation with the back-end now.
          * A clean (and generic!!) way of pulling this out into the template would be good.
          * Maybe just links to original and preview, preferred, and build out this logic with ng-if
-         * , if possible.
+         * , if possible. Yeah..
          */
         previewTag.append("<div id='" + MODAL_DIV_ID + "_" + filename + "' class='" + MODAL_IMAGE_CLASS + "'>");
-        previewTag.append("<a href=\"\" ng-click=\"setOpacity(item.onClick, 0)\" title=\"Close\" class=\"close\">X</a>");
+        previewTag.append("<a href=\"\" ng-click=\"toggleOpacity(item.onClick, 0)\" title=\"Close\" class=\"close\">X</a>");
         previewTag.append( this.generateImageLink(userId, filename, "Picture of " + filename, -1, -1));
         previewTag.append("</div>");
         return previewTag.toString();

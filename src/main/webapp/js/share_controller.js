@@ -42,12 +42,17 @@ shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
 shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routeParams','$location', '$anchorScroll',
     function( $scope, $http, $routeParams, $location, $anchorScroll ) {
 
-        $scope.setOpacity = function( itemId, opacity ) {
-            document.getElementById(itemId).style.opacity = opacity;
-            if( opacity > 0 ) {
-                alert( "setting point events to auto, opacity: " + opacity);
+        $scope.toggleOpacity = function( itemId, opacity ) {
+            if( document.getElementById(itemId).style.opacity > 0 ) {
+                document.getElementById(itemId).style.opacity = 0;
+                document.getElementById(itemId).style.pointerEvents = "none";
+            } else {
+                document.getElementById(itemId).style.opacity = 1;
                 document.getElementById(itemId).style.pointerEvents = "auto";
             }
+            /*if( opacity > 0 ) {
+                alert( "toggling opacity, argument was: " + opacity);
+            }*/
         }
 
         $scope.gotoAnchorHash = function(anchorHash) {

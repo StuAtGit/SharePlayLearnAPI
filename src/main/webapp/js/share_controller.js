@@ -39,8 +39,23 @@ shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
 ])
 
 
-shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routeParams',
-    function( $scope, $http, $routeParams) {
+shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routeParams','$location', '$anchorScroll',
+    function( $scope, $http, $routeParams, $location, $anchorScroll ) {
+
+        $scope.setOpacity = function( itemId, opacity ) {
+            document.getElementById(itemId).style.opacity = opacity;
+            if( opacity > 0 ) {
+                alert( "setting point events to auto, opacity: " + opacity);
+                document.getElementById(itemId).style.pointerEvents = "auto";
+            }
+        }
+
+        $scope.gotoAnchorHash = function(anchorHash) {
+            alert("Attempting to scroll to " + anchorHash);
+            $location.hash(anchorHash);
+            $anchorScroll();
+        }
+
         checkLoginStatus($scope, document);
         document.getElementById("legacy-duck-game").style.display = "none";
 

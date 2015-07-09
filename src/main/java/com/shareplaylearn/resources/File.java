@@ -187,7 +187,7 @@ public class File {
                     String previewKey = "/" + userId + "/" + previewFilename;
                     displayHtml = this.generatePreviewHtml(userId, previewFilename, filename, previewHeight);
                     hasOnClick = true;
-                    onClick = "#" + MODAL_DIV_ID;
+                    onClick = MODAL_DIV_ID + "_" + filename;
                     byte[] previewBuffer = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
                     ByteArrayInputStream previewStream = new ByteArrayInputStream(previewBuffer);
                     ObjectMetadata previewMetadata = this.makeBasicMetadata(previewBuffer.length, isPublic);
@@ -254,19 +254,28 @@ public class File {
             , String filename, int previewHeight) {
         StringBuilder previewTag = new StringBuilder();
         //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
-        previewTag.append( this.generateImageLink(userId, previewFilename, "preview of " + filename, previewHeight));
+        previewTag.append( this.generateImageLink(userId, previewFilename, "preview of " + filename,
+                ImagePreprocessorPlugin.PREVIEW_WIDTH, previewHeight));
         //TODO: we'll set this objects onClick to #openModal
-        previewTag.append("<div id='" + MODAL_DIV_ID + "' class='" + MODAL_IMAGE_CLASS + "'>");
-        previewTag.append( this.generateImageLink(userId, filename, "Picture of " + filename, -1));
+        /**
+         * We're really starting to tightly couple the presentation with the back-end now.
+         * A clean (and generic!!) way of pulling this out into the template would be good.
+         * Maybe just links to original and preview, preferred, and build out this logic with ng-if
+         * , if possible.
+         */
+        previewTag.append("<div id='" + MODAL_DIV_ID + "_" + filename + "' class='" + MODAL_IMAGE_CLASS + "'>");
+        previewTag.append("<a href=\"\" ng-click=\"setOpacity(item.onClick, 0)\" title=\"Close\" class=\"close\">X</a>");
+        previewTag.append( this.generateImageLink(userId, filename, "Picture of " + filename, -1, -1));
         previewTag.append("</div>");
         return previewTag.toString();
     }
 
-    private String generateImageLink(String userId, String previewFilename, String altText, int imageHeight) {
+    private String generateImageLink(String userId, String previewFilename, String altText, int imageWidth, int imageHeight) {
         String imageLink = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
-                "\"" + altText + "\" width=\"" + ImagePreprocessorPlugin.PREVIEW_WIDTH +"";
+                "\"" + altText + "\" ";
         if( imageHeight > 0 ) {
-            imageLink += "\" height=\"" + imageHeight + "\" border=0 />";
+            imageLink += " width=\"" + imageWidth + "\" " +
+                        " height=\"" + imageHeight + "\" border=0 />";
         } else {
             imageLink += " border=0 />";
         }

@@ -20,12 +20,15 @@ shareApp.config(
                 }).when( '/play', {
                     templateUrl: "play.html",
                     controller: "PlayCtrl"
-                 }).when( '/logout', {
+                }).when( '/learn', {
+                     templateUrl: "learn.html",
+                     controller: "LearnCtrl"
+                }).when( '/logout', {
                      templateUrl: "logout.html",
                      controller: "LogoutCtrl"
-                 }).otherwise( {
-                         redirectTo: "/share"
-                 });
+                }).otherwise( {
+                     redirectTo: "/share"
+                })
          }
         ]
- )
+ );

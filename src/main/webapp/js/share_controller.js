@@ -9,34 +9,14 @@ var shareAppControllers = angular.module('shareAppControllers',[]).config(functi
 shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http', 
     function( $scope, $http ) {
         checkLoginStatus($scope, document);
-        document.getElementById("legacy-duck-game").style.display = "none";
-        $http.get("test_data/share_sample.json").success( function(data) {
-            $scope.share_data = data;
-        })
     }
-])
+]);
 
 shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
     function( $scope, $routeParams ) {
         checkLoginStatus($scope, document);
-        //the duck game is just not that fit for any mobile right now :/
-        if(  !(new shareplaylearn.Utils()).isMobile() ) {
-            document.getElementById("legacy-duck-game").style.display = "block";
-            if( document.getElementById("duck-instructions") == null ) {
-                var instructionsNode = document.createElement("div");
-                instructionsNode.setAttribute("id", "duck-instructions");
-                instructionsNode.appendChild(document.createTextNode("Ducks!! :D"));
-                instructionsNode.appendChild(document.createElement("br"));
-                instructionsNode.appendChild(document.createTextNode("Arrows move you around"));
-                instructionsNode.appendChild(document.createElement("br"));
-                instructionsNode.appendChild(document.createTextNode("Press l to toggle look mode"));
-                instructionsNode.appendChild(document.createElement("br"));
-                instructionsNode.appendChild(document.createTextNode("Click ducks to make them rotate, click water to make new ducks"));
-                document.getElementById("legacy-duck-game").appendChild(instructionsNode);
-            }
-        }
     }
-])
+]);
 
 
 shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routeParams','$location', '$anchorScroll',
@@ -53,16 +33,15 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routePar
             /*if( opacity > 0 ) {
                 alert( "toggling opacity, argument was: " + opacity);
             }*/
-        }
+        };
 
         $scope.gotoAnchorHash = function(anchorHash) {
             alert("Attempting to scroll to " + anchorHash);
             $location.hash(anchorHash);
             $anchorScroll();
-        }
+        };
 
         checkLoginStatus($scope, document);
-        document.getElementById("legacy-duck-game").style.display = "none";
 
         $scope.itemlist = [];
 
@@ -185,8 +164,6 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
             $scope.credentials.username = $scope.user_info.user_email;
         }
 
-        document.getElementById("legacy-duck-game").style.display = "none";
-
         $scope.submitLogin = function(credentials) {
             $http.post("api/access_token", null,
                  {
@@ -291,4 +268,10 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
             }
         }
     }
-])
+]);
+
+shareAppControllers.controller("LearnCtrl", ["$scope", "$http", "$routeParams",
+    function( $scope, $http, $routeParams) {
+
+    }
+]);

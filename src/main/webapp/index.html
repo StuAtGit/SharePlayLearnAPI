@@ -15,69 +15,10 @@ and open the template in the editor.
         <!-- https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular-route.js -->
         <script language="javascript" type="text/javascript" src="js/angular-route-1.3.15.js"></script>
         <script language="javascript" type="text/javascript" src="js/share_app.js"></script>
+        <script language="javascript" type="text/javascript"
+                src="js/bower_components/angular-websocket/angular-websocket.js"></script>
         <script language="javascript" type="text/javascript" src="js/share_controller.js"></script>
         <script language="javascript" type="text/javascript" src="js/jsjws/jws-2.0.js"></script>
-        <script type="application/javascript" src="js/c3dl/c3dapi.js" ></script>
-        <script type="text/javascript" src="js/jiglib/jiglib.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/cof/jconfig.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/maths/glmatrix.js"></script>
-        <script type="text/javascript" src="js/jiglib/maths/vector3dutil.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/maths/matrix3d.js"></script>
-        <script type="text/javascript" src="js/jiglib/maths/jnumber3d.js"></script>
-        <script type="text/javascript" src="js/jiglib/maths/jmatrix3d.js"></script>
-        <script type="text/javascript" src="js/jiglib/maths/jmaths3d.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/data/contactdata.js"></script>
-        <script type="text/javascript" src="js/jiglib/data/edgedata.js"></script>
-        <script type="text/javascript" src="js/jiglib/data/planedata.js"></script>
-        <script type="text/javascript" src="js/jiglib/data/spandata.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/plugins/iskin3d.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/geometry/jaabox.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/physics/bodypair.js"></script>
-        <script type="text/javascript" src="js/jiglib/physics/cachedimpluse.js"></script>
-        <script type="text/javascript" src="js/jiglib/physics/materialproperties.js"></script>
-        <script type="text/javascript" src="js/jiglib/physics/physicscontroller.js"></script>
-        <script type="text/javascript" src="js/jiglib/physics/physicsstate.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/physics/rigid_body.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/geometry/jbox.js"></script>
-        <script type="text/javascript" src="js/jiglib/geometry/jcapsule.js"></script>
-        <script type="text/javascript" src="js/jiglib/geometry/jplane.js"></script>
-        <script type="text/javascript" src="js/jiglib/geometry/jray.js"></script>
-        <script type="text/javascript" src="js/jiglib/geometry/jsegment.js"></script>
-        <script type="text/javascript" src="js/jiglib/geometry/jsphere.js"></script>
-        <script type="text/javascript" src="js/jiglib/geometry/jterrain.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/collision/collpointinfo.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/collisioninfo.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectinfo.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectfunctor.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectboxbox.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectboxplane.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectboxterrain.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsulebox.js"></script>
-
-        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsulecapsule.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsuleplane.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectcapsuleterrain.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectspherebox.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectspherecapsule.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectsphereplane.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectspheresphere.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/colldetectsphereterrain.js"></script>
-        <script type="text/javascript" src="js/jiglib/collision/collisionsystem.js"></script>
-        <script type="text/javascript" src="js/jiglib/physics/physicssystem.js"></script>
-
-        <script language="javascript" type="text/javascript" src="js/simpleGames/WorldObject.js"></script>
-        <script language="javascript" type="text/javascript" src="js/simpleGames/simpleGame1.js"></script>
-
     </head>
     <body ng-app="shareApp">
         <div class="header">
@@ -99,11 +40,6 @@ and open the template in the editor.
             
         </div>
         <div id="wrap">
-            <!-- doesn't play with with angular's model - expects to be loaded pre(DOM)-render -->
-            <div id="legacy-duck-game" class="app-content">
-                <canvas id="simpleGame1" width="400" height="300">
-                </canvas>
-            </div>
             <!-- TODO: create local and remote profiles - even command line will still deploy to local server now! -->
             <!-- TODO: figure out how to make c3dl work with angular templates - needs to find canvas on load -->
             <div class="app-content" ng-view>

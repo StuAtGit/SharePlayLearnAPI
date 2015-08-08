@@ -1,84 +1,8 @@
-var shareAppControllers = angular.module('shareAppControllers',[]).config(function($sceProvider) {
-    //completely disable SCE because it sanitizes data that is *not*
-    //user-provided, and is *not* cross domain.
-    //Security through uselessness will always be disabled.
-    //TODO: eventually figure out how to work with angular's stupidity.
-    $sceProvider.enabled(false);
-});
-
-shareAppControllers.controller("PlayCtrl", ['$scope', '$routeParams',
-    function( $scope, $routeParams ) {
-        checkLoginStatus($scope, document);
-    }
-]);
-
 shareAppControllers.controller("LogoutCtrl", ['$scope', '$routeParams',
     function( $scope ) {
         logout( $scope, document );
     }
 ]);
-
-/**
- * 
- * @param {type} str
- * @returns {unresolved}
- *
- **/
-var base64urlDecode  = function(str) {
-  return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
-};
-
-var setCurrentUser = function ( username, document ) {
-    if (document.getElementById("current-user") != null &&
-        document.getElementById("current-user") != undefined) {
-
-        document.getElementById("current-user")
-            .appendChild(
-            document.createTextNode("Logged in as: " + username )
-        );
-    }
-
-    document.getElementById("login-control").style.display = "none";
-    document.getElementById("logout-control").style.display = "block";
-};
-
-var logout = function( $scope, document ) {
-    window.sessionStorage.removeItem('user_id');
-    window.sessionStorage.removeItem('access_token');
-    window.sessionStorage.removeItem('auth_code');
-    window.sessionStorage.removeItem('user_email');
-    window.sessionStorage.removeItem('user_name');
-
-    document.getElementById("login-control").style.display = "block";
-    document.getElementById("logout-control").style.display = "none";
-};
-
-var checkLoginStatus = function( $scope, document ) {
-
-    //TODO: OR invalid token
-    if( $scope.user_info == undefined ||
-        $scope.user_info == null ) {
-        $scope.user_info = {};
-    }
-
-    //TODO: Validate token, otherwise this logic fails messily when things timeout
-    $scope.user_info.access_token = window.sessionStorage.getItem("access_token");
-    $scope.user_info.token_expiration = window.sessionStorage.getItem("expires_in");
-    $scope.user_info.user_id = window.sessionStorage.getItem("user_id");
-    //for now, don't clear this, so we can try to auto-fill later
-    //$scope.user_info.user_email = window.sessionStorage.getItem("user_email");
-    $scope.user_info.user_name = window.sessionStorage.getItem("user_name");
-
-    if( $scope.user_info.access_token != undefined &&
-        $scope.user_info.access_token != null &&
-        $scope.user_info.user_name != undefined &&
-        $scope.user_info.user_name != null ) {
-        setCurrentUser($scope.user_info.user_name, document);
-    } else {
-        logout($scope, document);
-    }
-
-};
 
 shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
     function( $scope, $http, $routeParams ) {
@@ -91,7 +15,7 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
 
         $scope.submitLogin = function(credentials) {
             $http.post("api/access_token", null,
-                 {
+                {
                     headers: {
                         'Authorization': btoa($scope.credentials.username + ":" + $scope.credentials.password)
                     }
@@ -135,7 +59,7 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
                 }).error( function( data, status, headers, config ) {
                     alert( status + " " + data );
                 })
-        };s
+        };
         /**
          * Sample User token (see jwt):
          * eyJhbGciOiJSUzI1NiIsImtpZCI6IjljNjMxNDFjMzAzNjkyY2E3Y2Q4MDAxZTUxNmNhNDVhZDdlNTJiZTIifQ.
@@ -146,7 +70,7 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
             "access_token" in $routeParams &&
             "expires_in" in $routeParams &&
             "id_token" in $routeParams ) {
-            if( $routeParams["client_state"] === "insecure_test_token" ) { 
+            if( $routeParams["client_state"] === "insecure_test_token" ) {
                 $scope.user_info.client_state = $routeParams["session_state"];
                 $scope.user_info.access_token = $routeParams["access_token"];
                 $scope.user_info.token_expiration = $routeParams["expires_in"];
@@ -174,13 +98,13 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
                 var payload = JSON.parse(base64urlDecode(id_token_elements[1]));
                 //do we need to escape this? Gibberish either way.. (coz binary sig)
                 var signature = base64urlDecode(id_token_elements[2]);
-              
+
                 $scope.user_info.id_token_header = header;
                 $scope.user_info.id_token_payload = payload;
                 $scope.user_info.id_token_signature = signature;
                 $scope.user_info.user_name = payload.email.split('@')[0];
                 $scope.user_info.user_id = payload.sub;
-                
+
                 //window.sessionStorage.setItem("id_token", $scope.user_info.id_token);
                 //window.sessionStorage.setItem("id_token_header", header);
                 //window.sessionStorage.setItem("id_token_payload", payload);

@@ -1,4 +1,4 @@
-var shareAppControllers = angular.module('shareAppControllers',[]).config(function($sceProvider) {
+var shareAppControllers = angular.module('shareAppControllers',["userService"]).config(function($sceProvider) {
     //completely disable SCE because it sanitizes data that is *not*
     //user-provided, and is *not* cross domain.
     //Security through uselessness will always be disabled.

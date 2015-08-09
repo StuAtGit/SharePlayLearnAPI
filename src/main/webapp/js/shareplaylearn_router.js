@@ -6,25 +6,25 @@ shareApp.config(
          function( $routeProvider ) {
              $routeProvider.
                 when('/share', {
-                    templateUrl: "share-my-stuff.html",
+                    templateUrl: "templates/share-my-stuff.html",
                     controller:  "ShareMyStuffCtrl"
                 }).when('/share/:uploaded_flag' , {
-                    templateUrl: "share-my-stuff.html",
+                    templateUrl: "templates/share-my-stuff.html",
                     controller: "ShareMyStuffCtrl"
                 }).when('/login',{
-                    templateUrl: "login.html",
+                    templateUrl: "templates/login.html",
                     controller: "LoginCtrl"
                 }).when('/login_callback',{
-                    templateUrl: "logged_in.html",
+                    templateUrl: "templates/logged_in.html",
                     controller: "LoginCtrl"
                 }).when( '/play', {
-                    templateUrl: "play.html",
+                    templateUrl: "templates/play.html",
                     controller: "PlayCtrl"
                 }).when( '/learn', {
-                     templateUrl: "learn.html",
+                     templateUrl: "templates/learn.html",
                      controller: "LearnCtrl"
                 }).when( '/logout', {
-                     templateUrl: "logout.html",
+                     templateUrl: "templates/logout.html",
                      controller: "LogoutCtrl"
                 }).otherwise( {
                      redirectTo: "/share"

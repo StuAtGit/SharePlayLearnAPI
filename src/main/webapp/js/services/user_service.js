@@ -1,7 +1,8 @@
-var userService = angular.module("userServices",["ng"]);
+var userService = angular.module("userService",["ng"]);
 
 /*
- this is what the server-side object that is serialized into JSON looks like
+ this is what the server-side object that is serialized into JSON looks like,
+ which comes from google, and is specified in the google developer openid connect docs
  public static class OauthJwt {
  public String iss;
  public String sub;
@@ -28,30 +29,45 @@ userService.service("$user",["$http", "$q", function($http, $q) {
     var userInfo;
     var userInfoPromise;
 
-    this.setUserInfo = function( accessToken, userId, email, userName, tokenExpiraion )
+    /**
+     *
+     * @param {type} str
+     * @returns {unresolved}
+     *
+     **/
+    this.base64urlDecode  = function(str) {
+        return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
+    };
+
+    this.setUserInfo = function( accessToken, userId, email, userName, tokenExpiration )
     {
+        this.userInfo = {};
         this.userInfo.access_token = accessToken;
         this.userInfo.user_id = userId;
         this.userInfo.user_email = email;
         this.userInfo.user_name = userName;
-        this.userInfo.token_expiration = tokenExpiraion;
+        this.userInfo.token_expiration = tokenExpiration;
+        this.userInfoPromise.resolve(this.userInfo);
 
-        window.sessionStorage.setItem("access_token", this.user_info.access_token);
-        window.sessionStorage.setItem("expires_in", this.user_info.token_expiration);
-        window.sessionStorage.setItem("user_id", userId);
-        window.sessionStorage.setItem("user_email", this.user_info.user_email);
-        window.sessionStorage.setItem("user_name",this.user_info.user_name);
+        sessionStorage.setItem("access_token", this.userInfo.access_token);
+        sessionStorage.setItem("expires_in", this.userInfo.token_expiration);
+        sessionStorage.setItem("user_id", this.userInfo.user_id);
+        sessionStorage.setItem("user_email", this.userInfo.user_email);
+        sessionStorage.setItem("user_name",this.userInfo.user_name);
     };
 
     this.handleLoginResponse = function( data, status, headers, config ) {
-        var acesssToken = data.accessToken;
+        var accessToken = data.accessToken;
         var userId = data.idTokenBody.sub;
         var email = data.idTokenBody.email;
         var userName = data.idTokenBody.email.split('@')[0];
         var expiration = data.expiry;
 
         this.setUserInfo(accessToken, userId, email, userName, expiration);
-        this.userInfoPromise.resolve(this.userInfo);
+    };
+
+    this.handleLoginReject = function( data, status, headers, config ) {
+        this.userInfoPromise.reject( "User login failed due to network issue: " + status + " " + data );
     };
 
     //while tempting to return cached user, what if we want to login a new user?
@@ -62,7 +78,7 @@ userService.service("$user",["$http", "$q", function($http, $q) {
      * @returns {*}
      */
     this.loginUser = function(credentials) {
-        this.userInfoPromise = $q.deferred();
+        this.userInfoPromise = $q.defer();
 
         $http.post("api/access_token", null,
             {
@@ -71,10 +87,10 @@ userService.service("$user",["$http", "$q", function($http, $q) {
                 }
             }
         ).success(
-            this.handleLoginResponse( data, status, headers, config )
-        ).error( function( data, status, headers, config ) {
-            alert( status + " " + data );
-        });
+            this.handleLoginResponse.bind(this)
+        ).error(
+            this.handleLoginReject.bind(this)
+        );
 
         return this.userInfoPromise.promise;
     };
@@ -87,14 +103,44 @@ userService.service("$user",["$http", "$q", function($http, $q) {
      * @param idToken
      */
     this.handleOauth = function( accessToken, expiresIn, idToken ) {
-        //TODO: pull logic from if statement from login_controller that parses Oauth response
+        this.userInfo.access_token = accessToken;
+        this.userInfo.token_expiration = expiresIn;
+        this.userInfo.id_token = idToken;
+
+        window.sessionStorage.setItem("access_token", $scope.user_info.access_token);
+        //might want to calculate expiration as soon as it gets back, so I can have it anchored to a time?
+        //will need to be UTC, etc.
+        window.sessionStorage.setItem("expires_in", $scope.user_info.token_expiration);
+        /**
+         * The access token (not the id_token) is what is used to authorize with google.
+         * For, now delaying jwt authorization because we talk SSL to google.
+         * But jsjws has been pulled in for that purpose.
+         */
+        var id_token_elements = this.userInfo.id_token.split('.');
+        var header = this.base64urlDecode(id_token_elements[0]);
+        /**This is turned into a JSON object that maps to the JWT fields in google**/
+        var payload = JSON.parse(this.base64urlDecode(id_token_elements[1]));
+        //do we need to escape this? Gibberish either way.. (coz binary sig)
+        var signature = this.base64urlDecode(id_token_elements[2]);
+
+        /**
+         * The first three items are for debugging any jwt parsing issues
+         */
+        this.userInfo.id_token_header = header;
+        this.userInfo.id_token_payload = payload;
+        this.userInfo.id_token_signature = signature;
+        this.userInfo.email = payload.email;
+        this.userInfo.user_name = payload.email.split('@')[0];
+        this.userInfo.user_id = payload.sub;
+
+        this.setUserInfo(this.userInfo.access_token, this.userInfo.user_id,
+            this.userInfo.email, this.userInfo.user_name, this.userInfo.token_expiration);
     };
 
     this.logout = function() {
         this.userInfo = undefined;
         window.sessionStorage.removeItem('user_id');
         window.sessionStorage.removeItem('access_token');
-        window.sessionStorage.removeItem('auth_code');
         window.sessionStorage.removeItem('user_email');
         window.sessionStorage.removeItem('user_name');
     };
@@ -104,13 +150,14 @@ userService.service("$user",["$http", "$q", function($http, $q) {
     };
 
     this.getCurrentUser = function() {
-        //TODO: Validate token, otherwise this logic fails messily when things timeout
+        //TODO: Validate token, otherwise user will just get a random popup that tells them
+        //that they should logout and login again
         if( typeof this.userInfo === "undefined" ) {
             this.userInfo = {};
             this.userInfo.access_token = window.sessionStorage.getItem("access_token");
             this.userInfo.token_expiration = window.sessionStorage.getItem("expires_in");
             if( !this.isValidToken() ) {
-                this.loginUser();
+                this.logout();
                 return undefined;
             }
             this.userInfo.user_id = window.sessionStorage.getItem("user_id");
@@ -127,6 +174,8 @@ userService.service("$user",["$http", "$q", function($http, $q) {
                 this.logout();
                 return undefined;
             }
+        } else {
+            return this.userInfo;
         }
     };
 

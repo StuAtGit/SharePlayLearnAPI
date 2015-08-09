@@ -4,8 +4,8 @@ shareAppControllers.controller("LogoutCtrl", ['$scope', '$routeParams',
     }
 ]);
 
-shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
-    function( $scope, $http, $routeParams ) {
+shareAppControllers.controller("LoginCtrl",["$scope", "$http", "$routeParams", "$user",
+    function( $scope, $http, $routeParams, $user ) {
         $scope.credentials = {};
         checkLoginStatus($scope, document);
         if( $scope.user_info.user_email != null &&
@@ -14,58 +14,18 @@ shareAppControllers.controller("LoginCtrl",['$scope', '$http', '$routeParams',
         }
 
         $scope.submitLogin = function(credentials) {
-            $http.post("api/access_token", null,
-                {
-                    headers: {
-                        'Authorization': btoa($scope.credentials.username + ":" + $scope.credentials.password)
-                    }
-                }
-                /*
-                 public static class OauthJwt {
-                 public String iss;
-                 public String sub;
-                 public String azp;
-                 public String email;
-                 public String at_hash;
-                 public String email_verified;
-                 public String aud;
-                 public String iat;
-                 public String exp;
-                 }
-
-                 public static class LoginInfo {
-                 public String accessToken;
-                 public String expiry;
-                 public String idToken;
-                 public OauthJwt idTokenBody;
-                 public String id;
-                 }
-                 */
-            ).success( function( data, status, headers, config ) {
-                    //TODO: pull setting session storage & login controls into function
-                    $scope.user_info.access_token = data.accessToken;
-                    $scope.user_info.user_id = data.idTokenBody.sub;
-                    $scope.user_info.user_email = data.idTokenBody.email;
-                    $scope.user_info.user_name = data.idTokenBody.email.split('@')[0];
-                    $scope.user_info.token_expiration = data.expiry;
-
-                    window.sessionStorage.setItem("access_token", $scope.user_info.access_token);
-                    window.sessionStorage.setItem("expires_in", $scope.user_info.token_expiration);
-                    window.sessionStorage.setItem("user_id", data.idTokenBody.sub);
-                    window.sessionStorage.setItem("user_email", $scope.user_info.user_email);
-                    window.sessionStorage.setItem("user_name",$scope.user_info.user_name)
-
+            var loginPromise = $user.loginUser(credentials);
+            loginPromise.then(
+                function( userInfo ) {
+                    $scope.user_info = userInfo;
                     setCurrentUser($scope.user_info.user_name, document);
-                }).error( function( data, status, headers, config ) {
-                    alert( status + " " + data );
-                })
+                },
+                function( error ) {
+                    alert( "Login failed: " + error + " :(");
+                }
+            );
         };
-        /**
-         * Sample User token (see jwt):
-         * eyJhbGciOiJSUzI1NiIsImtpZCI6IjljNjMxNDFjMzAzNjkyY2E3Y2Q4MDAxZTUxNmNhNDVhZDdlNTJiZTIifQ.
-         * eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwic3ViIjoiMTEwODMxNjM0MzU1MjI2MzY0OTQwIiwiYXpwIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiZW1haWwiOiJzdHUyNmNvZGVAZ21haWwuY29tIiwiYXRfaGFzaCI6Iml3NWg3NUlnZlJzdkdKLUdDcTJNQWciLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYXVkIjoiNzI2ODM3ODY1MzU3LXRxczIwdTZsdXFjOW9hdjFicDN2YjhuZGdhdmpucmtmLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiaWF0IjoxNDEyNTQ5NTIzLCJleHAiOjE0MTI1NTM0MjN9.
-         * iMrciLGvWA__B-PY_1_POk1eus4C5W7K4LdOzZ4DNa3Fi2HaD5t8Wg9usq1-MzswZG4um55abkzlZ6IlmWNc-sJ_wwXXdO-cK4Bj8ucdBjCYWOCnZwx1akjH8Ettv3MGTa76mh7CuipTYpes8Ka_Wn2SPH7mmD1PK-asuj1t8U8
-         */
+
         if( "client_state" in $routeParams &&
             "access_token" in $routeParams &&
             "expires_in" in $routeParams &&

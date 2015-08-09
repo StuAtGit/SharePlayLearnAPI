@@ -474,19 +474,43 @@ public class File {
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
+        long listObjectStart = System.currentTimeMillis();
         ObjectListing objectListing = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
         Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
         List<FileListItem> objectNames = new ArrayList<>();
         List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
+        int maxCalls = 10;
+        int numCalls = 0;
+        while( objectListing.isTruncated() && numCalls < maxCalls ) {
+            objectListing = s3Client.listNextBatchOfObjects(objectListing);
+            for( S3ObjectSummary objectSummary : objectListing.getObjectSummaries() ) {
+                objectSummaries.add(objectSummary);
+            }
+            numCalls++;
+        }
+        long listObjectTime = System.currentTimeMillis() - listObjectStart;
+        System.out.println("List object time is: " + listObjectTime);
         int prefixLength = ("/" + userId + "/").length();
         StoredTokenService storedTokenService = new StoredTokenService();
         /**
          * Maybe we can stream this out??? Sloww.. get some perf logs in here.
-         * Fast on my phone, though?
+         * This REST call is taking >6 sec. Since we're going to pull the display html out into the
+         * presentation layer, check to see if it's the getObjectMetadata or the listObjects call
+         * that is so slow.
+         * Soo... list call is ~500 ms, and get metadata calls are about 100 ms. but we make about 30 of them.
+         * We are going to try to move all this Display HTML business into the presentation layer (angular template)
+         * logic, but, still, 1/2 sec is slooww for one call to get a list.
+         * We might need to start looking at:
+         * http://redis.io/topics/lru-cache
          */
+        long getObjectMetadataTime = 0;
+        int numGetObjectCalls = 0;
         for( S3ObjectSummary objectSummary : objectSummaries ) {
+            long getObjectMetadataStart = System.currentTimeMillis();
             String displayHtml = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
                     .getUserMetaDataOf(UploadMetadataFields.DISPLAY_HTML);
+            getObjectMetadataTime += (System.currentTimeMillis() - getObjectMetadataStart);
+            numGetObjectCalls++;
 
             //previews don't have display html - the display html of the objects points at the preview.
             if( displayHtml == null || displayHtml.trim().length() == 0) {
@@ -503,18 +527,28 @@ public class File {
                             storedTokenService.getStoredToken(userId, "", authorization));
             }
             FileListItem fileListItem = new FileListItem( objectSummary.getKey().substring(prefixLength), displayHtml );
+            getObjectMetadataStart = System.currentTimeMillis();
             String hasOnClickVal = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
                     .getUserMetaDataOf(UploadMetadataFields.HAS_ON_CLICK);
+            getObjectMetadataTime += System.currentTimeMillis() - getObjectMetadataStart;
+            numGetObjectCalls++;
+
             boolean hasOnClick = hasOnClickVal != null &&  hasOnClickVal.equals(UploadMetadataFields.TRUE_VALUE);
             String onClick = "";
             if( hasOnClick ) {
+                getObjectMetadataStart = System.currentTimeMillis();
                 onClick = s3Client.getObjectMetadata(S3_BUCKET, objectSummary.getKey())
                         .getUserMetaDataOf(UploadMetadataFields.ON_CLICK);
+                getObjectMetadataTime += System.currentTimeMillis() - getObjectMetadataStart;
+                numGetObjectCalls++;
                 fileListItem.setOnClick(onClick);
             }
             fileListItem.setHasOnClick(hasOnClick);
             objectNames.add( fileListItem );
         }
+        System.out.println("Get object metadata time: " + getObjectMetadataTime);
+        System.out.println("Number of calls: " + numGetObjectCalls + " avg: " + getObjectMetadataTime
+                / (double)numGetObjectCalls);
         return Response.status(Response.Status.OK).entity(gson.toJson(objectNames)).build();
     }
 

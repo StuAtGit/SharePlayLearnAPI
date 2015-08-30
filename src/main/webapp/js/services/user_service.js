@@ -1,4 +1,4 @@
-var userService = angular.module("userService",["ng"]);
+var userService = angular.module("userService",["ng","userItemModule"]);
 
 /*
  this is what the server-side object that is serialized into JSON looks like,
@@ -24,11 +24,7 @@ var userService = angular.module("userService",["ng"]);
  }
  */
 
-userService.service("$user",["$http", "$q", function($http, $q) {
-
-    var userInfo;
-    var userInfoPromise;
-
+userService.service("$user",["$http", "$q", "$itemService", function($http, $q, $itemService) {
     /**
      *
      * @param {type} str
@@ -37,6 +33,23 @@ userService.service("$user",["$http", "$q", function($http, $q) {
      **/
     this.base64urlDecode  = function(str) {
         return atob(str.replace(/\-/g, '+').replace(/_/g, '/'));
+    };
+
+    this.handleItemListResolve = function( itemList ) {
+        this.userInfo.itemListDeferred.resolve(itemList);
+    };
+
+    this.handleItemListReject = function( msg ) {
+        this.userInfo.itemListDeferred.reject(msg);
+    };
+
+    this.initializeItemList = function( userId, accessToken ) {
+        this.userInfo.itemListDeferred = $q.defer();
+
+        $itemService.getItems( userId, accessToken).then(
+            this.handleItemListResolve.bind(this),
+            this.handleItemListReject.bind(this)
+        );
     };
 
     this.setUserInfo = function( accessToken, userId, email, userName, tokenExpiration )
@@ -48,6 +61,7 @@ userService.service("$user",["$http", "$q", function($http, $q) {
         this.userInfo.user_name = userName;
         this.userInfo.token_expiration = tokenExpiration;
         this.userInfoPromise.resolve(this.userInfo);
+        this.initializeItemList(this.userInfo.user_id, this.userInfo.access_token);
 
         sessionStorage.setItem("access_token", this.userInfo.access_token);
         sessionStorage.setItem("expires_in", this.userInfo.token_expiration);
@@ -165,10 +179,16 @@ userService.service("$user",["$http", "$q", function($http, $q) {
             //$scope.user_info.user_email = window.sessionStorage.getItem("user_email");
             this.userInfo.user_name = window.sessionStorage.getItem("user_name");
 
+            //check to make sure the session storage had valid values
+            //TODO: verify token
             if( this.userInfo.access_token != undefined &&
                 this.userInfo.access_token != null &&
                 this.userInfo.user_name != undefined &&
                 this.userInfo.user_name != null ) {
+
+                if( typeof this.userInfo.itemListDeferred === "undefined" ) {
+                    this.initializeItemList(this.userInfo.user_id, this.userInfo.access_token);
+                }
                 return this.userInfo;
             } else {
                 this.logout();

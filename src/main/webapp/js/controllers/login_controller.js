@@ -49,12 +49,12 @@ shareAppControllers.controller("LoginCtrl",["$scope", "$http", "$routeParams", "
             "expires_in" in $routeParams &&
             "id_token" in $routeParams ) {
             if( $routeParams["client_state"] === "insecure_test_token" ) {
-                $scope.user_info.client_state = $routeParams["session_state"];
+                if( typeof $scope.user_info === "undefined" ) {
+                    $scope.user_info = {};
+                }
                 $scope.user_info.access_token = $routeParams["access_token"];
                 $scope.user_info.token_expiration = $routeParams["expires_in"];
                 $scope.user_info.id_token = $routeParams["id_token"];
-                window.sessionStorage.setItem("auth_code",$scope.user_info.auth_code);
-                //window.sessionStorage.setItem("client_state",$scope.user_info.client_state);
                 window.sessionStorage.setItem("access_token", $scope.user_info.access_token);
                 //might want to calculate expiration as soon as it gets back, so I can have it anchored to a time?
                 //will need to be UTC, etc.
@@ -97,6 +97,7 @@ shareAppControllers.controller("LoginCtrl",["$scope", "$http", "$routeParams", "
                         setCurrentUser($scope.user_info.user_name, document);
                     },
                     function error( msg ) {
+                        alert(msg);
                         logout($scope,document);
                     }
                 );

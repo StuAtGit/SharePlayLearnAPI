@@ -36,16 +36,16 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
     };
 
     this.handleItemListResolve = function( itemList ) {
-        this.userInfo.itemListDeferred.resolve(itemList);
+        this.userInfo.itemList = itemList;
+        this.userInfoPromise.resolve(this.userInfo);
     };
 
     this.handleItemListReject = function( msg ) {
-        this.userInfo.itemListDeferred.reject(msg);
+        this.logout();
+        this.userInfoPromise.reject("Failed to load item list: " + msg);
     };
 
     this.initializeItemList = function( userId, accessToken ) {
-        this.userInfo.itemListDeferred = $q.defer();
-
         $itemService.getItems( userId, accessToken).then(
             this.handleItemListResolve.bind(this),
             this.handleItemListReject.bind(this)
@@ -152,6 +152,10 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
     };
 
     this.logout = function() {
+        this.userInfo.access_token = undefined;
+        this.userInfo.user_id = undefined;
+        this.userInfo.itemList = undefined;
+        this.userInfo.user_name = undefined;
         this.userInfo = undefined;
         window.sessionStorage.removeItem('user_id');
         window.sessionStorage.removeItem('access_token');
@@ -168,6 +172,7 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
         //that they should logout and login again
         if( typeof this.userInfo === "undefined" ) {
             this.userInfo = {};
+            this.userInfoPromise = $q.defer();
             this.userInfo.access_token = window.sessionStorage.getItem("access_token");
             this.userInfo.token_expiration = window.sessionStorage.getItem("expires_in");
             if( !this.isValidToken() ) {
@@ -180,7 +185,6 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
             this.userInfo.user_name = window.sessionStorage.getItem("user_name");
 
             //check to make sure the session storage had valid values
-            //TODO: verify token
             if( this.userInfo.access_token != undefined &&
                 this.userInfo.access_token != null &&
                 this.userInfo.user_name != undefined &&
@@ -189,13 +193,14 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
                 if( typeof this.userInfo.itemListDeferred === "undefined" ) {
                     this.initializeItemList(this.userInfo.user_id, this.userInfo.access_token);
                 }
-                return this.userInfo;
+                return this.userInfoPromise.promise;
             } else {
                 this.logout();
                 return undefined;
             }
         } else {
-            return this.userInfo;
+            this.userInfoPromise.resolve(this.userInfo);
+            return this.userInfoPromise.promise;
         }
     };
 

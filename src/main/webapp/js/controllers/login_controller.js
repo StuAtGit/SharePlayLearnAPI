@@ -1,5 +1,6 @@
-shareAppControllers.controller("LogoutCtrl", ['$scope', '$routeParams',
-    function( $scope ) {
+shareAppControllers.controller("LogoutCtrl", ["$scope", "$user",
+    function( $scope, $user ) {
+        $user.logout();
         logout( $scope, document );
     }
 ]);
@@ -7,10 +8,19 @@ shareAppControllers.controller("LogoutCtrl", ['$scope', '$routeParams',
 shareAppControllers.controller("LoginCtrl",["$scope", "$http", "$routeParams", "$user",
     function( $scope, $http, $routeParams, $user ) {
         $scope.credentials = {};
-        checkLoginStatus($scope, document);
-        if( $scope.user_info.user_email != null &&
-            $scope.user_info.user_email != undefined ) {
-            $scope.credentials.username = $scope.user_info.user_email;
+
+        if( $user.getCurrentUser() !== undefined ) {
+            $user.getCurrentUser().then(
+                function success( data ) {
+                    $scope.user_info = data;
+                    setCurrentUser($scope.user_info.user_name, document);
+                },
+                function error( msg ) {
+                    logout($scope,document);
+                }
+            );
+        } else {
+            logout($scope,document);
         }
 
         $scope.submitLogin = function(credentials) {
@@ -19,6 +29,14 @@ shareAppControllers.controller("LoginCtrl",["$scope", "$http", "$routeParams", "
                 function( userInfo ) {
                     $scope.user_info = userInfo;
                     setCurrentUser($scope.user_info.user_name, document);
+                    $user.getCurrentUser().then(
+                        function success( data ) {
+                            $scope.user_info.itemList = data.itemList;
+                        },
+                        function error( msg ) {
+                            logout($scope,document);
+                        }
+                    );
                 },
                 function( error ) {
                     alert( "Login failed: " + error + " :(");
@@ -73,7 +91,15 @@ shareAppControllers.controller("LoginCtrl",["$scope", "$http", "$routeParams", "
                 window.sessionStorage.setItem("user_name",$scope.user_info.user_name)
                 //window.sessionStorage.setItem("id_token_signature", signature);
 
-                setCurrentUser($scope.user_info.user_name, document);
+                $user.getCurrentUser().then(
+                    function success( data ) {
+                        $scope.user_info = data;
+                        setCurrentUser($scope.user_info.user_name, document);
+                    },
+                    function error( msg ) {
+                        logout($scope,document);
+                    }
+                );
             }
         }
     }

@@ -1,10 +1,10 @@
-<div class="app-content" ng-if="user_info.user_name">
+<div class="app-content" ng-hide="!user_info || !user_info.user_name">
 
     {{user_info.user_name}}'s stuff <br/>
     <ol>
         <!-- TODO: previews when possible! -->
         <br/>
-        <div ng-repeat="item in itemlist" class="itemlist">
+        <div ng-repeat="item in user_info.itemList" class="itemlist">
             <!-- FileListItem will usually just have #openModal,
              and then have <div id="openModal" class=modalXXXPopup> </div>
              <a href="/#/share#{{item.onClick}}" ng-click="gotoAnchorHash(item.onClick)" ng-if="item.hasOnClick">
@@ -39,6 +39,6 @@
     <div id="file-uploaded" style="display:none;">File Uploaded :)</div>
 
 </div>
-<div class="app-content" ng-if="!user_info.user_name">
+<div class="app-content" ng-show="!user_info || !user_info.user_name">
     Please login in to share
 </div>

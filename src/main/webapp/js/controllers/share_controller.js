@@ -1,6 +1,6 @@
 shareAppControllers.controller("ShareIntroCtrl", ['$scope', '$http',
     function( $scope, $http ) {
-        checkLoginStatus($scope, document);
+        //checkLoginStatus($scope, document);
     }
 ]);
 
@@ -27,8 +27,6 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routePar
             $anchorScroll();
         };
 
-        checkLoginStatus($scope, document);
-
         //Angular can't deal with input type file models right now
         //so we'll need a more complex solution for the async upload
         $scope.submitUpload = function( file_upload, user_info ) {
@@ -43,14 +41,18 @@ shareAppControllers.controller("ShareMyStuffCtrl", ['$scope', '$http','$routePar
         }
 
         if( $user.getCurrentUser() !== undefined ) {
-            $user.getCurrentUser().itemListDeferred.promise.then(
+            $user.getCurrentUser().then(
                 function success( data ) {
-                    $scope.itemlist = data;
+                    $scope.user_info = data;
+                    setCurrentUser($scope.user_info.user_name, document);
                 },
                 function error( msg ) {
-                    alert( msg );
+                    $user.logout();
+                    logout($scope,document);
                 }
             );
+        } else {
+            logout($scope,document);
         }
     }
 ]);

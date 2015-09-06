@@ -5,8 +5,11 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.shareplaylearn.InternalErrorException;
 import com.shareplaylearn.models.FileListItem;
+import com.shareplaylearn.models.Limits;
 import com.shareplaylearn.models.UploadMetadataFields;
+import com.shareplaylearn.models.UserItemSet;
 import com.shareplaylearn.services.*;
 import com.shareplaylearn.utilities.Exceptions;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
@@ -26,7 +29,6 @@ import java.util.List;
 @Path(File.RESOURCE_BASE)
 public class File {
 
-    private static final String S3_BUCKET = "shareplaylearn";
     private static final String MODAL_DIV_ID = "OpenImageModal";
     private static final String MODAL_IMAGE_CLASS = "modalImagePopup";
     //we store this in the display html to indicate the token should be replaced
@@ -34,47 +36,11 @@ public class File {
     private static final String ACCESS_TOKEN_MARKER = "{{ACCESS_TOKEN}}";
     public static final String RESOURCE_BASE = "/file";
 
-    /**
-     * With 2MB default upload limit on tomcat, this comes to about:
-     * 1000*2MB ~ 2GB of data stored at any given time.
-     * 1 req/sec ~ 3x10^6 requests a month.
-     * At 10 GB / Month out, and 1 TB / Month in (kyup limits it to 1 TB, so that should throttle that).
-     * https://calculator.s3.amazonaws.com/index.html says we should be spending around $24 max.
-     */
-    //per user
-    private static final int MAX_NUM_FILES_PER_USER = 100;
-    private static final int MAX_TOTAL_FILES = 1000;
-    //limit retrieves to 0.5 GB for now (Tomcat should limit uploads to 2MB).
-    //raise to 1 GB when we buy more memory (if needed)
-    private static final int MAX_RETRIEVE_SIZE = (1024*1024*1024)/2;
-
     @POST
     @Consumes( MediaType.APPLICATION_OCTET_STREAM )
     public Response postFile( )
     {
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Not implemented yet").build();
-    }
-
-    /**
-     * This is not good enough. It slows things down, and still costs money.
-     * Eventually, we should have an async task that updates a local cache of
-     * used storage. If the cache says your below X of the limit (think atms),
-     * you're good. Once you get up close, ping Amazon every time.
-     * @param objectListing
-     * @param maxSize
-     * @return
-     */
-    private Response checkObjectListingSize( ObjectListing objectListing, int maxSize )
-    {
-        if( objectListing.isTruncated() && objectListing.getMaxKeys() >= maxSize ) {
-            System.out.println("Error, too many uploads");
-            return Response.status(418).entity("I'm a teapot! j/k - not enough space " + maxSize).build();
-        }
-        if( objectListing.getObjectSummaries().size() >= maxSize ) {
-            System.out.println("Error, too many uploads");
-            return Response.status(418).entity("I'm a teapot! Er, well, at least I can't hold " + maxSize + " stuff.").build();
-        }
-        return Response.status(Response.Status.OK).entity("OK").build();
     }
 
     /**
@@ -123,95 +89,11 @@ public class File {
             if (tokenResponse.getStatus() != Response.Status.OK.getStatusCode()) {
                 return tokenResponse;
             }
-            System.out.println("file submitted, and user authenticated, checking quota");
-            //you could possible parse out the token response username & id and check if they match
-            //but maybe we want to override that sometimes?
-            AmazonS3Client s3Client = new AmazonS3Client(
-                    new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
-            ObjectListing curList = s3Client.listObjects(S3_BUCKET, "/" + userId + "/");
-            Response listCheck;
-            if ((listCheck = this.checkObjectListingSize(curList, MAX_NUM_FILES_PER_USER)).getStatus() != Response.Status.OK.getStatusCode()) {
-                return listCheck;
-            }
-            ObjectListing userList = s3Client.listObjects(S3_BUCKET, "/");
-            if ((listCheck = this.checkObjectListingSize(userList, MAX_TOTAL_FILES)).getStatus() != Response.Status.OK.getStatusCode()) {
-                return listCheck;
-            }
+
             byte[] fileBuffer = org.apache.commons.io.IOUtils.toByteArray(filestream);
-            //perhaps not the best way to check for an image, but it works!
-            List<UploadPreprocessorPlugin> uploadPreprocessorPlugins = new ArrayList<>();
-            uploadPreprocessorPlugins.add(new ImagePreprocessorPlugin());
-            UploadPreprocessor uploadPreprocessor = new UploadPreprocessor( uploadPreprocessorPlugins );
-            Map<String,byte[]> uploads = uploadPreprocessor.process(fileBuffer);
+            UserItemSet userItemSet = new UserItemSet( userId );
+            userItemSet.addItem( filename, fileBuffer );
 
-            if( uploads.size() == 0 ) {
-                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).
-                        entity("Upload processor returned empty upload set").build();
-            } else if( !uploads.containsKey(uploadPreprocessor.getPreferredTag()) ) {
-                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).
-                        entity("Upload processor had no preferred tag! Not sure what to do.").build();
-            }
-
-            byte[] preferredUpload = uploads.get(uploadPreprocessor.getPreferredTag());
-            boolean isPublic = false;
-            ObjectMetadata rootObjectMetadata = this.makeBasicMetadata(preferredUpload.length, isPublic);
-
-            boolean beenResized = false;
-            boolean hasOnClick = false;
-            String onClick = "";
-            String displayHtml = "";
-
-            if( uploadPreprocessor.getLastUsedProcessor() instanceof  ImagePreprocessorPlugin ) {
-
-                //So if it's not resized, then the original tag should be the preferred
-                //so only upload the original if the preferred tag is not the original
-                if (!uploadPreprocessor.getPreferredTag().equals(ImagePreprocessorPlugin.ORIGINAL_TAG)) {
-                    String originalKey = "/" + userId + "/" + ImagePreprocessorPlugin.ORIGINAL_TAG + "/" + filename;
-                    byte[] originalBuffer = uploads.get(ImagePreprocessorPlugin.ORIGINAL_TAG);
-                    ObjectMetadata originalMetadata = this.makeBasicMetadata( originalBuffer.length, isPublic );
-                    originalMetadata.addUserMetadata(UploadMetadataFields.IS_ORIGINAL, UploadMetadataFields.TRUE_VALUE);
-                    ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(originalBuffer);
-                    s3Client.putObject( S3_BUCKET, originalKey, byteArrayInputStream, originalMetadata );
-
-                    rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_ORIGINAL, UploadMetadataFields.TRUE_VALUE);
-                    beenResized = true;
-                }
-
-                if (uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG)) {
-                    int previewHeight = ((ImagePreprocessorPlugin) uploadPreprocessor.
-                            getLastUsedProcessor()).getLastPreviewHeight();
-                    String previewFilename = ImagePreprocessorPlugin.PREVIEW_TAG + "_" + filename;
-                    if( !previewFilename.endsWith(".jpg") ) {
-                        previewFilename += ".jpg";
-                    }
-                    String previewKey = "/" + userId + "/" + previewFilename;
-                    displayHtml = this.generatePreviewHtml(userId, previewFilename, filename, previewHeight);
-                    hasOnClick = true;
-                    onClick = MODAL_DIV_ID + "_" + filename;
-                    byte[] previewBuffer = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
-                    ByteArrayInputStream previewStream = new ByteArrayInputStream(previewBuffer);
-                    ObjectMetadata previewMetadata = this.makeBasicMetadata(previewBuffer.length, isPublic);
-                    s3Client.putObject( S3_BUCKET, previewKey, previewStream, previewMetadata );
-                    rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_PREVIEW, UploadMetadataFields.TRUE_VALUE);
-                } else {
-                    displayHtml = filename;
-                }
-            } else {
-                displayHtml = filename;
-            }
-            rootObjectMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_HTML,displayHtml);
-            rootObjectMetadata.addUserMetadata(UploadMetadataFields.HAS_ON_CLICK, amazonBoolean(hasOnClick));
-            rootObjectMetadata.addUserMetadata(UploadMetadataFields.ON_CLICK, onClick);
-
-            //if we resized, then it's a jpg now.
-            if( !filename.endsWith(".jpg") && beenResized ) {
-                filename += ".jpg";
-            }
-            String rootObjectPath = "/" + userId + "/" + filename;
-            ByteArrayInputStream rootObjectStream = new ByteArrayInputStream(preferredUpload);
-            s3Client.putObject(S3_BUCKET, rootObjectPath, rootObjectStream, rootObjectMetadata);
-
-            ///s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
             System.out.println("Get localhost: " + InetAddress.getLocalHost());
             String[] host = InetAddress.getLocalHost().toString().split("/");
             if( host[0].trim().length() == 0 ) {
@@ -222,73 +104,33 @@ public class File {
                     hostname = "localhost";
                 }
                 return Response.status(Response.Status.CREATED).
-                        entity(this.generateBackPage(filename, userId)).build();
+                        entity(this.uploadSuccessEntity(filename)).build();
             }
+        }
+        catch( InternalErrorException ie ) {
+            String error = Exceptions.asString(ie);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();
         }
         catch( RuntimeException r )
         {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            r.printStackTrace(pw);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
+            String error = Exceptions.asString(r);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();
         }
         catch( Throwable t )
         {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            t.printStackTrace(pw);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
+            String error = Exceptions.asString(t);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();
         }
     }
 
-    private String amazonBoolean( boolean val ) {
-        if( val ) {
-            return UploadMetadataFields.TRUE_VALUE;
-        } else {
-            return UploadMetadataFields.FALSE_VALUE;
-        }
-    }
-
-    //TODO: not what we're getting from S3 in test (old stuff)
-    private String generatePreviewHtml(String userId, String previewFilename
-            , String filename, int previewHeight) {
-        StringBuilder previewTag = new StringBuilder();
-        //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
-        previewTag.append( this.generateImageLink(userId, previewFilename, "preview of " + filename,
-                ImagePreprocessorPlugin.PREVIEW_WIDTH, previewHeight));
-        //TODO: we'll set this objects onClick to #openModal
-        /**
-         * We're really starting to tightly couple the presentation with the back-end now.
-         * A clean (and generic!!) way of pulling this out into the template would be good.
-         * Maybe just links to original and preview, preferred, and build out this logic with ng-if
-         * , if possible. Yeah..
-         */
-        previewTag.append("<div id='" + MODAL_DIV_ID + "_" + filename + "' class='" + MODAL_IMAGE_CLASS + "'>");
-        previewTag.append("<a href=\"\" ng-click=\"toggleOpacity(item.onClick, 0)\" title=\"Close\" class=\"close\">X</a>");
-        previewTag.append( this.generateImageLink(userId, filename, "Picture of " + filename, -1, -1));
-        previewTag.append("</div>");
-        return previewTag.toString();
-    }
-
-    private String generateImageLink(String userId, String previewFilename, String altText, int imageWidth, int imageHeight) {
-        String imageLink = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
-                "\"" + altText + "\" ";
-        if( imageHeight > 0 ) {
-            imageLink += " width=\"" + imageWidth + "\" " +
-                        " height=\"" + imageHeight + "\" border=0 />";
-        } else {
-            imageLink += " border=0 />";
-        }
-        return imageLink;
-    }
     /**
-     * Messy. But returning seeOther() from uploadForm post:
+     * Messy. But returning seeOther() instead of 201 + the entity below from uploadForm POST:
      *  (a) invalidates the login (at least in Firefox). Looks like it clears the session cache due to redirect.
      *  (b) isn't really "correct" return value.
      *  (c) the real fix is to async the upload form.
      * @return
      */
-    private String generateBackPage( String filename, String userId ) {
+    private String uploadSuccessEntity( String filename ) {
         StringBuffer backPage = new StringBuffer();
         backPage.append("<html>\n<head>");
         backPage.append("<link rel=\"stylesheet\" href=\"../../css/style-master.css\" type=\"text/css\">");
@@ -316,16 +158,45 @@ public class File {
         return backPage.toString();
     }
 
-    private ObjectMetadata makeBasicMetadata( int bufferLength, boolean isPublic ) {
-        ObjectMetadata fileMetadata = new ObjectMetadata();
-        fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
-        if (isPublic) {
-            fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.TRUE_VALUE);
+    private String amazonBoolean( boolean val ) {
+        if( val ) {
+            return UploadMetadataFields.TRUE_VALUE;
         } else {
-            fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.FALSE_VALUE);
+            return UploadMetadataFields.FALSE_VALUE;
         }
-        fileMetadata.setContentLength(bufferLength);
-        return fileMetadata;
+    }
+
+    //TODO: migrate all this preview templating into Angular front-end template
+    //TODO: then migrate S3 item extraction into the UserItemSet code, and test
+    private String generatePreviewHtml(String userId, String previewFilename
+            , String filename, int previewHeight) {
+        StringBuilder previewTag = new StringBuilder();
+        //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
+        previewTag.append( this.generateImageLink(userId, previewFilename, "preview of " + filename,
+                ImagePreprocessorPlugin.PREVIEW_WIDTH, previewHeight));
+        /**
+         * We're really starting to tightly couple the presentation with the back-end now.
+         * A clean (and generic!!) way of pulling this out into the template would be good.
+         * Maybe just links to original and preview, preferred, and build out this logic with ng-if
+         * , if possible. Yeah..
+         */
+        previewTag.append("<div id='" + MODAL_DIV_ID + "_" + filename + "' class='" + MODAL_IMAGE_CLASS + "'>");
+        previewTag.append("<a href=\"\" ng-click=\"toggleOpacity(item.onClick, 0)\" title=\"Close\" class=\"close\">X</a>");
+        previewTag.append( this.generateImageLink(userId, filename, "Picture of " + filename, -1, -1));
+        previewTag.append("</div>");
+        return previewTag.toString();
+    }
+
+    private String generateImageLink(String userId, String previewFilename, String altText, int imageWidth, int imageHeight) {
+        String imageLink = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
+                "\"" + altText + "\" ";
+        if( imageHeight > 0 ) {
+            imageLink += " width=\"" + imageWidth + "\" " +
+                        " height=\"" + imageHeight + "\" border=0 />";
+        } else {
+            imageLink += " border=0 />";
+        }
+        return imageLink;
     }
 
     private Response getS3Object( AmazonS3Client s3Client, String itemPath ) {
@@ -335,7 +206,7 @@ public class File {
         S3Object object = s3Client.getObject(S3_BUCKET, itemPath);
         try( S3ObjectInputStream inputStream = object.getObjectContent() ) {
             long contentLength = object.getObjectMetadata().getContentLength();
-            if(contentLength > MAX_RETRIEVE_SIZE)
+            if(contentLength > Limits.MAX_RETRIEVE_SIZE)
             {
                 throw new IOException("Object is to large: " + contentLength + " bytes.");
             }

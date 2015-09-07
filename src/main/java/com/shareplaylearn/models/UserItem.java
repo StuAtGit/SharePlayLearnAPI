@@ -48,7 +48,7 @@ public class UserItem {
         return this;
     }
 
-    public UserItem addMeta( String key, String value ) {
+    public UserItem addAttr(String key, String value) {
         this.attr.put(key, value);
         return this;
     }

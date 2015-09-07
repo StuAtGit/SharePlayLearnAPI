@@ -115,7 +115,7 @@ public class UserItemManager {
     }
 
     /**
-     * TODO: UNIT TEST THIS!! Then integrate with new template - getting closer! :D
+     * TODO: UNIT TEST THIS!! Then finish and integrate with new template - getting closer! :D
      * @return
      */
     public List<UserItem> getItemList() {
@@ -133,6 +133,11 @@ public class UserItemManager {
             UserItem userItem;
             if( itemLocations.get(ItemSchema.PREVIEW_IMAGE_TYPE).contains(previewPath) ) {
                 userItem  = new UserItem( location, previewPath, null, ItemSchema.IMAGE_TYPE);
+                userItem.addAttr("width", ImagePreprocessorPlugin.PREVIEW_WIDTH + "");
+                //TODO: figure out how to (properly) determine this! Then uncomment in template
+                int previewHeight = ImagePreprocessorPlugin.PREVIEW_WIDTH;
+                userItem.addAttr("height", previewHeight + "");
+                userItem.addAttr("altText", "Preview of " + name);
             } else {
                 userItem = new UserItem(location, null, null, ItemSchema.IMAGE_TYPE);
             }
@@ -161,7 +166,7 @@ public class UserItemManager {
         itemLocations.put(ItemSchema.IMAGE_TYPE, imageLocations);
 
         HashSet<String> previewLocations = new HashSet<>();
-        for( S3ObjectSummary obj : previewListing.getObjectSummaries() ) {
+        for (S3ObjectSummary obj : previewListing.getObjectSummaries() ) {
             previewLocations.add( obj.getKey() );
         }
         itemLocations.put(ItemSchema.PREVIEW_IMAGE_TYPE, previewLocations);

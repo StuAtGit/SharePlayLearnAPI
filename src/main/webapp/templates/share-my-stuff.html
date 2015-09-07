@@ -5,10 +5,13 @@
         <br/>
         <div ng-repeat="item in user_info.itemList" class="itemlist">
             <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.itemLocation}}">
-                <img src="src=/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.previewLocation}}"
-                     width="{{item.attr.width}}" height="{{item.attr.height}}"
+                <img
+                     src="src=/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.previewLocation}}"
+                     width="{{item.attr.width}}"
+                     height="{{item.attr.height}}"
                      ng-show="item.hasPreview && item.type==='image'"
-                        />
+                     alt="{{item.attr.altText}}"
+                >
             </a>
             <!-- FileListItem will usually just have #openModal,
              and then have <div id="openModal" class=modalXXXPopup> </div>

@@ -2,7 +2,7 @@ package com.shareplaylearn.resources.test;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.shareplaylearn.models.FileListItem;
+import com.shareplaylearn.models.UserItem;
 import com.shareplaylearn.resources.File;
 import com.shareplaylearn.utilities.Exceptions;
 import org.apache.http.HttpEntity;
@@ -146,16 +146,16 @@ public class FileResourceTest {
                     throw new RuntimeException("Error retrieving file list for user: " + this.userId + " " +
                             processedHttpResponse.completeMessage);
                 }
-                List<FileListItem> filelist;
+                List<UserItem> filelist;
                 try {
-                    Type listType = new TypeToken<ArrayList<FileListItem>>(){}.getType();
+                    Type listType = new TypeToken<ArrayList<UserItem>>(){}.getType();
                     filelist = new Gson().fromJson(processedHttpResponse.entity, listType);
                 } catch (Throwable t) {
                     throw new RuntimeException("Failed to parse response entity into json: " + processedHttpResponse.entity +
                             "\n" + Exceptions.asString(t));
                 }
                 boolean found = false;
-                for( FileListItem item : filelist ) {
+                for( UserItem item : filelist ) {
                     if( item.getName().equals(uploadEntry.getKey()) ) {
                         found = true;
                     }

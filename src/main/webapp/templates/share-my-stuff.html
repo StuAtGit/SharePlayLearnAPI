@@ -2,9 +2,14 @@
 
     <span ng-bind="user_info.user_name + '\'s stuff'"></span><br/>
     <ol>
-        <!-- TODO: previews when possible! -->
         <br/>
         <div ng-repeat="item in user_info.itemList" class="itemlist">
+            <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.itemLocation}}">
+                <img src="src=/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.previewLocation}}"
+                     width="{{item.attr.width}}" height="{{item.attr.height}}"
+                     ng-show="item.hasPreview && item.type==='image'"
+                        />
+            </a>
             <!-- FileListItem will usually just have #openModal,
              and then have <div id="openModal" class=modalXXXPopup> </div>
              <a href="/#/share#{{item.onClick}}" ng-click="gotoAnchorHash(item.onClick)" ng-if="item.hasOnClick">

@@ -28,30 +28,18 @@ import java.util.*;
  */
 public class FileResourceTest {
 
-    private static final String TEST_UPLOAD_TEXT_FILE = "TestUpload.txt";
-    //private static final String TEST_UPLOAD_JPG_FILE = "Disneyland.jpg";
-    //might just want to *.jpg fill this out, so we can have all the things!! :D
-    private static final String TEST_UPLOAD_JPG_FILE = "pctechsupportcat.jpg";
-    private static final String TEST_UPLOAD_FILE_PATH = "/home/stu/Projects/SharePlayLearnMaven/";
-    private HashMap<String,String> testUploads;
     private String accessToken;
     private String userId;
     private HttpClient httpClient;
 
-    private void initTestFiles() {
-        testUploads.put(TEST_UPLOAD_TEXT_FILE, TEST_UPLOAD_FILE_PATH + TEST_UPLOAD_TEXT_FILE);
-        testUploads.put(TEST_UPLOAD_JPG_FILE, TEST_UPLOAD_FILE_PATH + TEST_UPLOAD_JPG_FILE);
-    }
     public FileResourceTest(String userId, String accessToken, HttpClient httpClient) {
         this.accessToken = accessToken;
         this.httpClient = httpClient;
         this.userId = userId;
-        this.testUploads = new HashMap<>();
-        initTestFiles();
     }
 
     public void testPost() throws IOException {
-        for(Map.Entry<String,String> uploadEntry : this.testUploads.entrySet()) {
+        for(Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet()) {
             Path uploadTest = FileSystems.getDefault().getPath(uploadEntry.getValue());
             byte[] uploadBuffer = Files.readAllBytes(uploadTest);
             HttpEntity formEntity = MultipartEntityBuilder.create().
@@ -116,7 +104,7 @@ public class FileResourceTest {
     }
 
     public void testGet() throws IOException {
-        for( Map.Entry<String,String> uploadEntry : this.testUploads.entrySet() ) {
+        for( Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet() ) {
             Path uploadTest = FileSystems.getDefault().getPath(uploadEntry.getValue());
             byte[] testFileBuffer = Files.readAllBytes(uploadTest);
             String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE
@@ -126,7 +114,7 @@ public class FileResourceTest {
     }
 
     public void testGetPathAuthorization() throws IOException {
-        for( Map.Entry<String,String> uploadEntry : this.testUploads.entrySet() ) {
+        for( Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet() ) {
             Path uploadTest = FileSystems.getDefault().getPath(uploadEntry.getValue());
             byte[] testFileBuffer = Files.readAllBytes(uploadTest);
             String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE
@@ -136,7 +124,7 @@ public class FileResourceTest {
     }
 
     public void testGetFileList() throws IOException {
-        for( Map.Entry<String,String> uploadEntry : this.testUploads.entrySet() ) {
+        for( Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet() ) {
             String filelistResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + "/" + this.userId + "/filelist";
             HttpGet filelistGet = new HttpGet(filelistResource);
             filelistGet.addHeader("Authorization", "Bearer " + this.accessToken);
@@ -155,11 +143,12 @@ public class FileResourceTest {
                             "\n" + Exceptions.asString(t));
                 }
                 boolean found = false;
-                for( UserItem item : filelist ) {
-                    if( item.getName().equals(uploadEntry.getKey()) ) {
-                        found = true;
-                    }
-                }
+                //TODO fix this up
+//                for( UserItem item : filelist ) {
+//                    if( item.getName().equals(uploadEntry.getKey()) ) {
+//                        found = true;
+//                    }
+//                }
                 if (!found) {
                     throw new RuntimeException("Error: file list " + processedHttpResponse.entity + " did not contain test filename " +
                             uploadEntry.getKey());

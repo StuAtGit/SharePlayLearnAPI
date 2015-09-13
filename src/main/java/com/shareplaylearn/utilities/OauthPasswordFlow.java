@@ -91,6 +91,7 @@ public class OauthPasswordFlow {
         public String idToken;
         public OauthJwt idTokenBody;
         public String id;
+        public String userName;
     }
 
 

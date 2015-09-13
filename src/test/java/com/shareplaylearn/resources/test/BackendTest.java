@@ -69,7 +69,7 @@ public class BackendTest{
         StandaloneServer standaloneServer = new StandaloneServer(port);
         Thread serverThread = new Thread(standaloneServer);
         serverThread.start();
-        Thread.sleep(1500);
+        Thread.sleep(3000);
 
         try {
             TestClient testClient = new TestClient("localhost", port);

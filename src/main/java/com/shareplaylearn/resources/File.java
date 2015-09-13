@@ -9,6 +9,7 @@ import com.shareplaylearn.InternalErrorException;
 import com.shareplaylearn.models.*;
 import com.shareplaylearn.services.*;
 import com.shareplaylearn.utilities.Exceptions;
+import com.shareplaylearn.utilities.OauthPasswordFlow;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
@@ -86,7 +87,9 @@ public class File {
             }
 
             byte[] fileBuffer = org.apache.commons.io.IOUtils.toByteArray(filestream);
-            UserItemManager userItemManager = new UserItemManager( userId );
+            //TODO: get this somehow (securely) AND one more below!
+            String userName = "TODO_GET_USER_NAME";
+            UserItemManager userItemManager = new UserItemManager( userName, userId );
             userItemManager.addItem( filename, fileBuffer );
 
             System.out.println("Get localhost: " + InetAddress.getLocalHost());
@@ -341,7 +344,9 @@ public class File {
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
         Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-        UserItemManager userItemManager = new UserItemManager( userId );
+        //TODO: get this somehow (securely)
+        String userName = "TODO_GET_USER_NAME";
+        UserItemManager userItemManager = new UserItemManager( userName, userId );
         return Response.status(Response.Status.OK).entity(gson.toJson(userItemManager.getItemList())).build();
     }
 

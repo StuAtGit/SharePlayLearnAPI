@@ -54,6 +54,9 @@ public class TestClient
             AccessTokenTest accessTokenTest = new AccessTokenTest(SecretsService.testOauthUsername,
                     SecretsService.testOauthPassword);
             OauthPasswordFlow.LoginInfo loginInfo = accessTokenTest.testPost();
+            loginInfo.userName = SecretsService.testOauthUsername;
+            UserItemManagerTest userItemManagerTest = new UserItemManagerTest();
+            userItemManagerTest.testGetFileList(loginInfo);
             FileResourceTest testFileResource = new FileResourceTest(loginInfo.id,
                     loginInfo.accessToken, BackendTest.httpClient);
             testFileResource.testPost();

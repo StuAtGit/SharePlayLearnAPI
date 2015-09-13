@@ -27,10 +27,12 @@ public class UserItemManager {
     private int totalItemQuota = Limits.DEFAULT_ITEM_QUOTA;
     private HashMap<String,Integer> itemQuota;
 
+    private String userName;
     private String userId;
     private String userDir;
 
-    public UserItemManager(String userId) {
+    public UserItemManager(String userName, String userId) {
+        this.userName = userName;
         this.userId = userId;
         this.userDir = this.getUserDir();
         this.itemQuota = new HashMap<>();
@@ -134,7 +136,7 @@ public class UserItemManager {
             if( itemLocations.get(ItemSchema.PREVIEW_IMAGE_TYPE).contains(previewPath) ) {
                 userItem  = new UserItem( location, previewPath, null, ItemSchema.IMAGE_TYPE);
                 userItem.addAttr("width", ImagePreprocessorPlugin.PREVIEW_WIDTH + "");
-                //TODO: figure out how to (properly) determine this! Then uncomment in template
+                //TODO: figure out how to (properly) determine this!
                 int previewHeight = ImagePreprocessorPlugin.PREVIEW_WIDTH;
                 userItem.addAttr("height", previewHeight + "");
                 userItem.addAttr("altText", "Preview of " + name);
@@ -174,7 +176,7 @@ public class UserItemManager {
     }
 
     public String getUserDir() {
-        return ROOT_DIR + this.userId + "/";
+        return ROOT_DIR + this.userName + "_" + this.userId + "/";
     }
 
     public String getItemLocation( String name, String type ) {

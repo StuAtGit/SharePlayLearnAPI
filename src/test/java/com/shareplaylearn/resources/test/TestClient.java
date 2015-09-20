@@ -55,13 +55,11 @@ public class TestClient
                     SecretsService.testOauthPassword);
             OauthPasswordFlow.LoginInfo loginInfo = accessTokenTest.testPost();
             loginInfo.userName = SecretsService.testOauthUsername;
-            UserItemManagerTest userItemManagerTest = new UserItemManagerTest();
-            userItemManagerTest.testGetFileList(loginInfo);
-            FileResourceTest testFileResource = new FileResourceTest(loginInfo.id,
+            UserItemManagerTest userItemManagerTest = new UserItemManagerTest(loginInfo);
+            userItemManagerTest.testGetFileList();
+            FileResourceTest testFileResource = new FileResourceTest( loginInfo.userName, loginInfo.id,
                     loginInfo.accessToken, BackendTest.httpClient);
             testFileResource.testPost();
-            testFileResource.testGet();
-            testFileResource.testGetPathAuthorization();
             testFileResource.testGetFileList();
         }
         catch( Throwable t ) {

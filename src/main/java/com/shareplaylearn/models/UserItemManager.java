@@ -87,6 +87,42 @@ public class UserItemManager {
         return Response.status(200).build();
     }
 
+    public Response getItem( String type, String name ) {
+        if( !name.startsWith("/") ) {
+            name = "/" + name;
+        }
+        name = this.getUserDir() + type + name;
+        AmazonS3Client s3Client = new AmazonS3Client(
+                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
+        );
+        try
+        {
+            S3Object object = s3Client.getObject(ItemSchema.S3_BUCKET, name);
+            try( S3ObjectInputStream inputStream = object.getObjectContent() ) {
+                long contentLength = object.getObjectMetadata().getContentLength();
+                if (contentLength > Limits.MAX_RETRIEVE_SIZE) {
+                    throw new IOException("Object is to large: " + contentLength + " bytes.");
+                }
+                int bufferSize = Math.min((int) contentLength, 10 * 8192);
+                byte[] buffer = new byte[bufferSize];
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                int bytesRead = 0;
+                int totalBytesRead = 0;
+                while ((bytesRead = inputStream.read(buffer)) > 0) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    totalBytesRead += bytesRead;
+                }
+                System.out.println("GET in file resource read: " + totalBytesRead + " bytes.");
+                return Response.status(Response.Status.OK).entity(outputStream.toByteArray()).build();
+            }
+        } catch (Exception e) {
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            pw.println("\nFailed to retrieve: " + name);
+            e.printStackTrace(pw);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
+        }
+    }
 
     /**
      * Writes items to S3, and item metadata to Redis
@@ -117,7 +153,6 @@ public class UserItemManager {
     }
 
     /**
-     * TODO: UNIT TEST THIS!! Then finish and integrate with new template - getting closer! :D
      * @return
      */
     public List<UserItem> getItemList() {
@@ -126,11 +161,6 @@ public class UserItemManager {
         for( String location : itemLocations.get(ItemSchema.IMAGE_TYPE) ) {
             String[] path = location.split("/");
             String name = path[path.length-1];
-            //Another approach would be to embed the preview path in some metadata associated with the
-            //preferred itemLocation name. However, metadata lookups in S3 are slow (but we are looking at
-            //redis), and this approach guarantees that the preview will exist (although we could just
-            //add a check after looking up the metadata...). In other words, works for now, may change
-            //once we get a redis local metadata cache up and going.
             String previewPath = this.getItemLocation(name, ItemSchema.PREVIEW_IMAGE_TYPE);
             UserItem userItem;
             if( itemLocations.get(ItemSchema.PREVIEW_IMAGE_TYPE).contains(previewPath) ) {
@@ -143,6 +173,10 @@ public class UserItemManager {
             } else {
                 userItem = new UserItem(location, null, null, ItemSchema.IMAGE_TYPE);
             }
+            itemList.add(userItem);
+        }
+        for( String location : itemLocations.get(ItemSchema.UNKNOWN_TYPE) ) {
+            UserItem userItem = new UserItem(location, null, null, ItemSchema.UNKNOWN_TYPE);
             itemList.add(userItem);
         }
         return itemList;
@@ -160,12 +194,10 @@ public class UserItemManager {
 
         ObjectListing imageListing = s3Client.listObjects(ItemSchema.S3_BUCKET, imageDir);
         ObjectListing previewListing = s3Client.listObjects(ItemSchema.S3_BUCKET, previewDir);
+        ObjectListing unknownItemListing = s3Client.listObjects(ItemSchema.S3_BUCKET, unknownDir);
 
-        HashSet<String> imageLocations = new HashSet<>();
-        for( S3ObjectSummary obj : imageListing.getObjectSummaries() ) {
-            imageLocations.add(obj.getKey());
-        }
-        itemLocations.put(ItemSchema.IMAGE_TYPE, imageLocations);
+        itemLocations.put(ItemSchema.IMAGE_TYPE, getExternalItemListing(imageListing));
+        itemLocations.put(ItemSchema.UNKNOWN_TYPE, getExternalItemListing(unknownItemListing));
 
         HashSet<String> previewLocations = new HashSet<>();
         for (S3ObjectSummary obj : previewListing.getObjectSummaries() ) {
@@ -175,8 +207,43 @@ public class UserItemManager {
         return itemLocations;
     }
 
+    private HashSet<String> getExternalItemListing( ObjectListing objectListing ) {
+        HashSet<String> itemLocations = new HashSet<>();
+        for( S3ObjectSummary obj : objectListing.getObjectSummaries() ) {
+            String externalPath = makeExternalLocation(obj.getKey());
+            if( externalPath != null ) {
+                itemLocations.add(externalPath);
+            }
+        }
+        return itemLocations;
+    }
+    /**
+     * Translates an internal S3 path to the path used in the external API
+     * @param internalPath
+     * @return
+     */
+    private String makeExternalLocation( String internalPath ) {
+        //"/root/" is not used in the external API, strip it off
+        String[] itemPath = internalPath.split("/");
+        if( itemPath.length > 2 ) {
+            String externalPath = "";
+            for (int i = 0; i < itemPath.length; ++i) {
+                if( itemPath[i].equals("root")  && i < 2 ) {
+                    continue;
+                }
+                if( itemPath[i].trim().length() == 0 ) {
+                    continue;
+                }
+                externalPath += "/";
+                externalPath += itemPath[i];
+            }
+            return externalPath;
+        }
+        return null;
+    }
+
     public String getUserDir() {
-        return ROOT_DIR + this.userName + "_" + this.userId + "/";
+        return ROOT_DIR + this.userName + "/" + this.userId + "/";
     }
 
     public String getItemLocation( String name, String type ) {

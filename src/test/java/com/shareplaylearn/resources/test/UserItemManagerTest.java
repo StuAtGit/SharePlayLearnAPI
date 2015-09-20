@@ -4,9 +4,7 @@ import com.google.gson.Gson;
 import com.shareplaylearn.InternalErrorException;
 import com.shareplaylearn.models.UserItem;
 import com.shareplaylearn.models.UserItemManager;
-import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.utilities.OauthPasswordFlow;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -20,8 +18,13 @@ import java.util.Map;
  */
 public class UserItemManagerTest {
 
-    @Test
-    public void testGetFileList(OauthPasswordFlow.LoginInfo loginInfo) throws IOException, InternalErrorException {
+    OauthPasswordFlow.LoginInfo loginInfo;
+
+    public UserItemManagerTest( OauthPasswordFlow.LoginInfo loginInfo ) {
+        this.loginInfo = loginInfo;
+    }
+
+    public void testGetFileList() throws IOException, InternalErrorException {
         UserItemManager userItemManager = new UserItemManager( loginInfo.userName, loginInfo.id );
         for(Map.Entry<String,String> testUpload : TestFiles.testUploads.entrySet() ) {
             Path testPath = FileSystems.getDefault().getPath(testUpload.getValue());

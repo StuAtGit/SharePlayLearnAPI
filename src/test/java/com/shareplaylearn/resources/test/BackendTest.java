@@ -46,23 +46,6 @@ public class BackendTest{
 
     @Test
     public void RunBackendTests() throws Exception {
-
-//        OauthPasswordFlow.LoginInfo loginInfo;
-//        try {
-//            loginInfo = OauthPasswordFlow.googleLogin(SecretsService.testOauthUsername,
-//                    SecretsService.testOauthPassword,
-//                    SecretsService.googleClientId
-//                    , "https://www.shareplaylearn.com/api/oauth2callback");
-//
-//            Gson gson = new Gson();
-//            System.out.println(gson.toJson(loginInfo));
-//        } catch (SocketTimeoutException e ) {
-//            e.printStackTrace();
-//            System.out.println("failed to connect to oauth provider " + e.getMessage());
-//            assertTrue( false );
-//            throw e;
-//        }
-
         int timeout = 10000;
         int port = TEST_PORT;
 

@@ -56,6 +56,7 @@ public class File {
                                   //we'll let this be optional, derive from the contentDisposition for now
                                   //and add this where we want/need to
                                   @FormDataParam("filename") String filename,
+                                  @FormDataParam("user_name") String userName,
                                   @FormDataParam("user_id") String userId,
                                   @FormDataParam("access_token") String accessToken,
                                   @HeaderParam("Content-Length") String contentLength )
@@ -87,8 +88,6 @@ public class File {
             }
 
             byte[] fileBuffer = org.apache.commons.io.IOUtils.toByteArray(filestream);
-            //TODO: get this somehow (securely) AND one more below!
-            String userName = "TODO_GET_USER_NAME";
             UserItemManager userItemManager = new UserItemManager( userName, userId );
             userItemManager.addItem( filename, fileBuffer );
 
@@ -156,14 +155,6 @@ public class File {
         return backPage.toString();
     }
 
-    private String amazonBoolean( boolean val ) {
-        if( val ) {
-            return UploadMetadataFields.TRUE_VALUE;
-        } else {
-            return UploadMetadataFields.FALSE_VALUE;
-        }
-    }
-
     //TODO: migrate all this preview templating into Angular front-end template
     //TODO: then migrate S3 item extraction into the UserItemManager code, and test
     private String generatePreviewHtml(String userId, String previewFilename
@@ -197,36 +188,6 @@ public class File {
         return imageLink;
     }
 
-    private Response getS3Object( AmazonS3Client s3Client, String itemPath ) {
-        if( !itemPath.startsWith("/") ) {
-            itemPath = "/" + itemPath;
-        }
-        S3Object object = s3Client.getObject(ItemSchema.S3_BUCKET, itemPath);
-        try( S3ObjectInputStream inputStream = object.getObjectContent() ) {
-            long contentLength = object.getObjectMetadata().getContentLength();
-            if(contentLength > Limits.MAX_RETRIEVE_SIZE)
-            {
-                throw new IOException("Object is to large: " + contentLength + " bytes.");
-            }
-            int bufferSize = Math.min((int)contentLength,10*8192);
-            byte[] buffer = new byte[bufferSize];
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            int bytesRead = 0;
-            int totalBytesRead = 0;
-            while( (bytesRead = inputStream.read(buffer)) > 0 ) {
-                outputStream.write(buffer,0,bytesRead);
-                totalBytesRead += bytesRead;
-            }
-            System.out.println("GET in file resource read: " + totalBytesRead + " bytes.");
-            return Response.status(Response.Status.OK).entity(outputStream.toByteArray()).build();
-        } catch (IOException e) {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            e.printStackTrace(pw);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
-        }
-    }
-
     /**
      * Factored out this functionality so we can support access token in header, and in URL
      * @param userId
@@ -234,7 +195,7 @@ public class File {
      * @param access_token
      * @return
      */
-    public Response getFileGeneric( String userId, String filename, String access_token )
+    public Response getFileGeneric( String userName, String userId, String filetype, String filename, String access_token )
     {
         if( userId == null || userId.trim().length() == 0  ) {
             return Response.status(Response.Status.BAD_REQUEST).entity("No user id").build();
@@ -242,49 +203,15 @@ public class File {
         if( filename == null || filename.trim().length() == 0  ) {
             return Response.status(Response.Status.BAD_REQUEST).entity("No file id given").build();
         }
-        String itemPath = "/" + userId + "/" + filename;
-        /**
-         * Actually, don't need this for now, as java Path annotation won't let anything go too screwy
-         * Eventually, we should regex the filename, though to allow / hiearchies (perhaps)
-         try {
-         URI userBucketPath = new URI(null,null,filename,null);
-         } catch (URISyntaxException e) {
-
-         **/
-        AmazonS3Client s3Client = new AmazonS3Client(
-                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
-        );
-        ObjectMetadata objectMetadata = s3Client.getObjectMetadata(ItemSchema.S3_BUCKET, itemPath);
-        if( access_token == null  || access_token.length() == 0 || access_token.equals("public")) {
-            String isPublic = objectMetadata.getUserMetaDataOf(UploadMetadataFields.PUBLIC);
-            /**
-             * TODO: (note we have an untested change above to not add jpg if the filename already ends with it)
-             *       (e) path should not be using access token.
-             *                - equivalent lifetime token
-             *                - token to share with specific users??? (might use a different approach then this for sharing)
-             *                - perma-token for shareable, but not fully public, links.
-             *       (e) access token should be invalidated upon logout, if possible.
-             *       (f) we need a in-line div "pop-up" of items that we know how to display
-             *          (like images or markdown or text)
-             *       (f) layout of previews should be a responsive grid .. or not?
-             *       (g) try to figure out how to work with angular's SCE stuff.
-             */
-            if( isPublic != null && isPublic.equals(UploadMetadataFields.TRUE_VALUE)) {
-                try {
-                    return getS3Object(s3Client, itemPath);
-                } catch (Throwable t) {
-                    return Response.status(Response.Status.BAD_REQUEST).entity("Amazon has failed us, for key: " +
-                            filename + "\n" + Exceptions.asString(t)).build();
-                }
-            } else {
-                return Response.status(Response.Status.UNAUTHORIZED).entity("Not authorized " + isPublic).build();
-            }
+        UserItemManager userItemManager = new UserItemManager( userName, userId );
+        if( access_token == null  || access_token.length() == 0 ) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("Not authorized").build();
         }
         else
         {
             Response tokenResponse = OAuth2Callback.validateToken(access_token);
             if( tokenResponse.getStatus() == Response.Status.OK.getStatusCode() ) {
-                return getS3Object(s3Client,itemPath);
+                return userItemManager.getItem( filetype, filename );
             }
             return tokenResponse;
         }
@@ -292,42 +219,21 @@ public class File {
 
     @GET
     @Produces( MediaType.APPLICATION_OCTET_STREAM )
-    @Path("/{userId}/{filename}")
-    public Response getFile( @PathParam("userId") String userId,
+    @Path("/{userName}/{userId}/{filetype}/{filename}")
+    public Response getFile( @PathParam("userName") String userName,
+                             @PathParam("userId") String userId,
+                             @PathParam("filetype") String filetype,
                              @PathParam("filename") String filename,
                              @HeaderParam("Authorization") String access_token)
     {
-        return getFileGeneric(userId, filename, access_token );
-    }
-
-    /***
-     * Might want to yank this back later (don't really want to encourage ppl to share their access token!!)
-     * OTOH, we might want to look into a limited scope token that just works for this. Handy for sharing,
-     * and will make the links expire.
-     *
-     * TODO: Deprecate this with angular click() intercept in template
-     *
-     * Note: we flip the order of access_token & filename so the browser will save the file with the logical
-     * name
-     * @param userId
-     * @param filename
-     * @param access_token
-     * @return
-     */
-    @GET
-    @Produces( MediaType.APPLICATION_OCTET_STREAM )
-    @Path("/{userId}/{access_token}/{filename}")
-    public Response getFilePathAuthorization( @PathParam("userId") String userId,
-                                              @PathParam("filename") String filename,
-                                              @PathParam("access_token") String access_token)
-    {
-        return getFileGeneric(userId, filename, access_token );
+        return getFileGeneric( userName, userId, filetype, filename, access_token );
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("/{userId}/filelist")
-    public Response getFileList( @PathParam("userId") String userId,
+    @Path("/{userName}/{userId}/filelist")
+    public Response getFileList( @PathParam("userName") String userName,
+                                 @PathParam("userId") String userId,
                                  @HeaderParam("Authorization") String authorization )
     {
         if( userId == null ) {
@@ -340,12 +246,7 @@ public class File {
         if( authResponse.getStatus() != Response.Status.OK.getStatusCode() ) {
             return authResponse;
         }
-        AmazonS3Client s3Client = new AmazonS3Client(
-                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
-        );
         Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-        //TODO: get this somehow (securely)
-        String userName = "TODO_GET_USER_NAME";
         UserItemManager userItemManager = new UserItemManager( userName, userId );
         return Response.status(Response.Status.OK).entity(gson.toJson(userItemManager.getItemList())).build();
     }

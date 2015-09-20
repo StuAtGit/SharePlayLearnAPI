@@ -4,12 +4,16 @@
     <ol>
         <br/>
         <div ng-repeat="item in user_info.itemList" class="itemlist">
-            <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.itemLocation}}">
+            <!--TODO: Retrieve item data at location via authorized XML http request,
+                TODO: and load item data via data URI:
+                TODO: https://en.wikipedia.org/wiki/Data_URI_scheme
+                TODO: Do this for preview as well-->
+            <a href="/api/file/{{item.itemLocation}}">
                 <img
-                     src="src=/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.previewLocation}}"
+                     ng-if="item.hasPreview && item.type==='image'"
+                     src="src=/api/file/{{item.previewLocation}}"
                      width="{{item.attr.width}}"
                      height="{{item.attr.height}}"
-                     ng-show="item.hasPreview && item.type==='image'"
                      alt="{{item.attr.altText}}"
                 >
             </a>
@@ -17,10 +21,8 @@
              and then have <div id="openModal" class=modalXXXPopup> </div>
              <a href="/#/share#{{item.onClick}}" ng-click="gotoAnchorHash(item.onClick)" ng-if="item.hasOnClick">
              as display html-->
+            <!-- TODO: move display html snippets from backend to frontend -->
             <a href="" ng-click="toggleOpacity(item.onClick,1)" ng-if="item.hasOnClick">
-                <div ng-bind-html="item.displayHtml"></div>
-            </a>
-            <a href="/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}" ng-if="!item.hasOnClick">
                 <div ng-bind-html="item.displayHtml"></div>
             </a>
         </div>

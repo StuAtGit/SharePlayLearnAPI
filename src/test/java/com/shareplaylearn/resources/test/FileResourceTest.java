@@ -30,12 +30,14 @@ public class FileResourceTest {
 
     private String accessToken;
     private String userId;
+    private String userName;
     private HttpClient httpClient;
 
-    public FileResourceTest(String userId, String accessToken, HttpClient httpClient) {
+    public FileResourceTest(String userName, String userId, String accessToken, HttpClient httpClient) {
         this.accessToken = accessToken;
         this.httpClient = httpClient;
         this.userId = userId;
+        this.userName = userName;
     }
 
     public void testPost() throws IOException {
@@ -103,35 +105,24 @@ public class FileResourceTest {
         }
     }
 
-    public void testGet() throws IOException {
-        for( Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet() ) {
-            Path uploadTest = FileSystems.getDefault().getPath(uploadEntry.getValue());
-            byte[] testFileBuffer = Files.readAllBytes(uploadTest);
-            String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE
-                    + "/" + this.userId + "/" + uploadEntry.getKey();
-            testGetGeneric(fileResource, testFileBuffer, true);
-        }
-    }
-
-    public void testGetPathAuthorization() throws IOException {
-        for( Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet() ) {
-            Path uploadTest = FileSystems.getDefault().getPath(uploadEntry.getValue());
-            byte[] testFileBuffer = Files.readAllBytes(uploadTest);
-            String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE
-                    + "/" + this.userId + "/" + this.accessToken + "/" + uploadEntry.getKey();
-            testGetGeneric(fileResource, testFileBuffer, false);
-        }
+    public void testGet( String itemLocation, Path testItemName ) throws IOException {
+        byte[] testFileBuffer = Files.readAllBytes(testItemName);
+        String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + itemLocation;
+        testGetGeneric(fileResource, testFileBuffer, true);
     }
 
     public void testGetFileList() throws IOException {
         for( Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet() ) {
-            String filelistResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + "/" + this.userId + "/filelist";
+            String filelistResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + "/" + this.userName
+            + "/" + this.userId + "/filelist";
             HttpGet filelistGet = new HttpGet(filelistResource);
             filelistGet.addHeader("Authorization", "Bearer " + this.accessToken);
+            filelistGet.addHeader("UserId", this.userId);
+            filelistGet.addHeader("UserName", this.userName);
             try (CloseableHttpResponse response = (CloseableHttpResponse) httpClient.execute(filelistGet)) {
                 BackendTest.ProcessedHttpResponse processedHttpResponse = new BackendTest.ProcessedHttpResponse(response);
                 if (processedHttpResponse.code != Response.Status.OK.getStatusCode()) {
-                    throw new RuntimeException("Error retrieving file list for user: " + this.userId + " " +
+                    throw new RuntimeException("Error retrieving file list for user: " + this.userName + " " +
                             processedHttpResponse.completeMessage);
                 }
                 List<UserItem> filelist;
@@ -142,13 +133,15 @@ public class FileResourceTest {
                     throw new RuntimeException("Failed to parse response entity into json: " + processedHttpResponse.entity +
                             "\n" + Exceptions.asString(t));
                 }
+                System.out.println("Got filelist: " + processedHttpResponse.entity);
                 boolean found = false;
-                //TODO fix this up
-//                for( UserItem item : filelist ) {
-//                    if( item.getName().equals(uploadEntry.getKey()) ) {
-//                        found = true;
-//                    }
-//                }
+                for( UserItem item : filelist ) {
+                    if( item.getItemLocation().endsWith(uploadEntry.getKey()) ) {
+                        Path itemPath = FileSystems.getDefault().getPath( uploadEntry.getValue() );
+                        testGet( item.getItemLocation(), itemPath );
+                        found = true;
+                    }
+                }
                 if (!found) {
                     throw new RuntimeException("Error: file list " + processedHttpResponse.entity + " did not contain test filename " +
                             uploadEntry.getKey());

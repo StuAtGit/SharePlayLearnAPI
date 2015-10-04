@@ -26,9 +26,9 @@ var $itemService = itemModule.service( "$itemService", ["$http", "$q", function(
         }
     };
 
-    this.getItems = function( userId, accessToken ) {
+    this.getItemList = function( userEmail, userId, accessToken ) {
         if( typeof this.itemList === "undefined" ) {
-            $http.get("api/file/" + userId + "/filelist",
+            $http.get("api/file/" + userEmail + "/" + userId + "/filelist",
                 {
                     headers: {'Authorization':'Bearer ' + accessToken}
                 }).
@@ -42,5 +42,15 @@ var $itemService = itemModule.service( "$itemService", ["$http", "$q", function(
         }
         return this.itemListDeferred.promise;
     };
+
+    //TODO: user service calls this, and populates item data
+    //TODO: for each item in the itemlist, and share controller
+    //TODO: then invokes this. Write until/functional tests for services that
+    //TODO: validate they do the write thing. And separate out ui into a separate project
+    this.getItem = function( accessToken, itemLocation ) {
+        var itemDataDeferred = $q.defer();
+        $http.get("api/file" + itemLocation );
+        return itemDataDeferred.promise;
+    }
 
 }]);

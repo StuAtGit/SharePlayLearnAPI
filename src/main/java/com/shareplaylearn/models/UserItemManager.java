@@ -161,15 +161,14 @@ public class UserItemManager {
         for( String location : itemLocations.get(ItemSchema.IMAGE_TYPE) ) {
             String[] path = location.split("/");
             String name = path[path.length-1];
-            String previewPath = this.getItemLocation(name, ItemSchema.PREVIEW_IMAGE_TYPE);
+            String previewPath = this.makeExternalLocation(
+                    this.getItemLocation(name, ItemSchema.PREVIEW_IMAGE_TYPE) );
             UserItem userItem;
             if( itemLocations.get(ItemSchema.PREVIEW_IMAGE_TYPE).contains(previewPath) ) {
                 userItem  = new UserItem( location, previewPath, null, ItemSchema.IMAGE_TYPE);
-                userItem.addAttr("width", ImagePreprocessorPlugin.PREVIEW_WIDTH + "");
-                //TODO: figure out how to (properly) determine this!
-                int previewHeight = ImagePreprocessorPlugin.PREVIEW_WIDTH;
-                userItem.addAttr("height", previewHeight + "");
                 userItem.addAttr("altText", "Preview of " + name);
+                //for now, leave it to the browser to figure out height & width of preview..
+                //(until we have a metadata store for that stuff)
             } else {
                 userItem = new UserItem(location, null, null, ItemSchema.IMAGE_TYPE);
             }
@@ -198,12 +197,7 @@ public class UserItemManager {
 
         itemLocations.put(ItemSchema.IMAGE_TYPE, getExternalItemListing(imageListing));
         itemLocations.put(ItemSchema.UNKNOWN_TYPE, getExternalItemListing(unknownItemListing));
-
-        HashSet<String> previewLocations = new HashSet<>();
-        for (S3ObjectSummary obj : previewListing.getObjectSummaries() ) {
-            previewLocations.add( obj.getKey() );
-        }
-        itemLocations.put(ItemSchema.PREVIEW_IMAGE_TYPE, previewLocations);
+        itemLocations.put(ItemSchema.PREVIEW_IMAGE_TYPE, getExternalItemListing(previewListing));
         return itemLocations;
     }
 
@@ -213,6 +207,9 @@ public class UserItemManager {
             String externalPath = makeExternalLocation(obj.getKey());
             if( externalPath != null ) {
                 itemLocations.add(externalPath);
+                System.out.println("External path was " + externalPath);
+            } else {
+                System.out.println("External path for object list was null?");
             }
         }
         return itemLocations;

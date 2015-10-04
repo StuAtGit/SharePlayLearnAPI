@@ -173,7 +173,7 @@ public class OauthPasswordFlow {
             postResponse = oauthPostConnection.method(Connection.Method.POST).timeout(5000).execute();
         } catch ( Throwable t ) {
             System.out.println( "Failed to post login information to googles endpoint :/ " + t.getMessage());
-            System.out.println( "This usually means the connectio is bad, or, more likely" +
+            System.out.println( "This usually means the connection is bad, shareplaylearn.com is down, or " +
                     " google is being a punk - login manually and check.");
             assertTrue( false );
         }

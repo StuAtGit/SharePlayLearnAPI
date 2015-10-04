@@ -38,6 +38,15 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
     this.handleItemListResolve = function( itemList ) {
         this.userInfo.itemList = itemList;
         this.userInfoPromise.resolve(this.userInfo);
+        for( var itemIndex in this.userInfo.itemList ) {
+            if( !this.userInfo.itemList.hasOwnProperty(itemIndex) ) {
+                continue;
+            }
+
+            $itemService.getItem(
+                this.userInfo.access_token,
+                this.userInfo.itemList[itemIndex].previewLocation )
+        }
     };
 
     this.handleItemListReject = function( msg ) {
@@ -45,8 +54,8 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
         this.userInfoPromise.reject("Failed to load item list: " + msg);
     };
 
-    this.initializeItemList = function( userId, accessToken ) {
-        $itemService.getItems( userId, accessToken).then(
+    this.initializeItemList = function( userEmail, userId, accessToken ) {
+        $itemService.getItemList( userEmail, userId, accessToken).then(
             this.handleItemListResolve.bind(this),
             this.handleItemListReject.bind(this)
         );
@@ -61,7 +70,10 @@ userService.service("$user",["$http", "$q", "$itemService", function($http, $q, 
         this.userInfo.user_name = userName;
         this.userInfo.token_expiration = tokenExpiration;
         this.userInfoPromise.resolve(this.userInfo);
-        this.initializeItemList(this.userInfo.user_id, this.userInfo.access_token);
+        this.initializeItemList(
+            this.userInfo.user_email,
+            this.userInfo.user_id,
+            this.userInfo.access_token);
 
         sessionStorage.setItem("access_token", this.userInfo.access_token);
         sessionStorage.setItem("expires_in", this.userInfo.token_expiration);

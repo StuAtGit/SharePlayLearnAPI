@@ -1,5 +1,6 @@
 package com.shareplaylearn.resources.test;
 
+import com.google.gson.Gson;
 import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.utilities.Exceptions;
 import com.shareplaylearn.utilities.OauthPasswordFlow;
@@ -54,6 +55,8 @@ public class TestClient
             AccessTokenTest accessTokenTest = new AccessTokenTest(SecretsService.testOauthUsername,
                     SecretsService.testOauthPassword);
             OauthPasswordFlow.LoginInfo loginInfo = accessTokenTest.testPost();
+            System.out.println("Received login info: ");
+            System.out.println(new Gson().toJson(loginInfo));
             loginInfo.userName = SecretsService.testOauthUsername;
             UserItemManagerTest userItemManagerTest = new UserItemManagerTest(loginInfo);
             userItemManagerTest.testGetFileList();

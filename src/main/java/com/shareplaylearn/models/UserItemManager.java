@@ -3,6 +3,7 @@ package com.shareplaylearn.models;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
+import com.amazonaws.util.Base64;
 import com.shareplaylearn.InternalErrorException;
 import com.shareplaylearn.services.ImagePreprocessorPlugin;
 import com.shareplaylearn.services.SecretsService;
@@ -113,7 +114,8 @@ public class UserItemManager {
                     totalBytesRead += bytesRead;
                 }
                 System.out.println("GET in file resource read: " + totalBytesRead + " bytes.");
-                return Response.status(Response.Status.OK).entity(outputStream.toByteArray()).build();
+                return Response.status(Response.Status.OK).entity(
+                        Base64.encodeAsString(outputStream.toByteArray())).build();
             }
         } catch (Exception e) {
             StringWriter sw = new StringWriter();

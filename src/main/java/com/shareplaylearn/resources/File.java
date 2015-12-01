@@ -81,7 +81,9 @@ public class File {
             if (accessToken == null || accessToken.trim().length() == 0) {
                 return Response.status(Response.Status.BAD_REQUEST).entity("No access token given.").build();
             }
-
+            if(userName == null || userId.trim().length() == 0) {
+                return Response.status(Response.Status.BAD_REQUEST).entity("No user name given.").build();
+            }
             Response tokenResponse = OAuth2Callback.validateToken(accessToken);
             if (tokenResponse.getStatus() != Response.Status.OK.getStatusCode()) {
                 return tokenResponse;

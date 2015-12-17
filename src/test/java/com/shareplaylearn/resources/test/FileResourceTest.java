@@ -99,7 +99,7 @@ public class FileResourceTest {
                 throw new RuntimeException(message);
             }
 
-            if( encode.toUpperCase().equals(UserItemManager.AvailableEncodings.BASE64) ) {
+            if( encode != null && encode.toUpperCase().equals(UserItemManager.AvailableEncodings.BASE64) ) {
                 entity = Base64.decode(entity);
             }
             if (!Arrays.equals(entity, testFileBuffer)) {

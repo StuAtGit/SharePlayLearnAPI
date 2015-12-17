@@ -157,39 +157,6 @@ public class File {
         return backPage.toString();
     }
 
-    //TODO: migrate all this preview templating into Angular front-end template
-    //TODO: then migrate S3 item extraction into the UserItemManager code, and test
-    private String generatePreviewHtml(String userId, String previewFilename
-            , String filename, int previewHeight) {
-        StringBuilder previewTag = new StringBuilder();
-        //"/api/file/{{user_info.user_id}}/{{user_info.access_token}}/{{item.name}}"
-        previewTag.append( this.generateImageLink(userId, previewFilename, "preview of " + filename,
-                ImagePreprocessorPlugin.PREVIEW_WIDTH, previewHeight));
-        /**
-         * We're really starting to tightly couple the presentation with the back-end now.
-         * A clean (and generic!!) way of pulling this out into the template would be good.
-         * Maybe just links to original and preview, preferred, and build out this logic with ng-if
-         * , if possible. Yeah..
-         */
-        previewTag.append("<div id='" + MODAL_DIV_ID + "_" + filename + "' class='" + MODAL_IMAGE_CLASS + "'>");
-        previewTag.append("<a href=\"\" ng-click=\"toggleOpacity(item.onClick, 0)\" title=\"Close\" class=\"close\">X</a>");
-        previewTag.append( this.generateImageLink(userId, filename, "Picture of " + filename, -1, -1));
-        previewTag.append("</div>");
-        return previewTag.toString();
-    }
-
-    private String generateImageLink(String userId, String previewFilename, String altText, int imageWidth, int imageHeight) {
-        String imageLink = "<img src=/api/file/" + userId + "/" + ACCESS_TOKEN_MARKER + "/" + previewFilename + " alt=" +
-                "\"" + altText + "\" ";
-        if( imageHeight > 0 ) {
-            imageLink += " width=\"" + imageWidth + "\" " +
-                        " height=\"" + imageHeight + "\" border=0 />";
-        } else {
-            imageLink += " border=0 />";
-        }
-        return imageLink;
-    }
-
     /**
      * Factored out this functionality so we can support access token in header, and in URL
      * @param userId
@@ -197,7 +164,8 @@ public class File {
      * @param access_token
      * @return
      */
-    public Response getFileGeneric( String userName, String userId, String filetype, String filename, String access_token )
+    public Response getFileGeneric( String userName, String userId, String filetype, String filename,
+                                    String access_token, String encoding )
     {
         if( userId == null || userId.trim().length() == 0  ) {
             return Response.status(Response.Status.BAD_REQUEST).entity("No user id").build();
@@ -213,7 +181,7 @@ public class File {
         {
             Response tokenResponse = OAuth2Callback.validateToken(access_token);
             if( tokenResponse.getStatus() == Response.Status.OK.getStatusCode() ) {
-                return userItemManager.getItem( filetype, filename );
+                return userItemManager.getItem( filetype, filename, encoding );
             }
             return tokenResponse;
         }
@@ -226,9 +194,16 @@ public class File {
                              @PathParam("userId") String userId,
                              @PathParam("filetype") String filetype,
                              @PathParam("filename") String filename,
-                             @HeaderParam("Authorization") String access_token)
+                             @HeaderParam("Authorization") String access_token,
+                             //Not entirely happy with this - Accept-Encoding would be more correct
+                             //but this is easier in the UI, in some circumstances,
+                             //and I don't want to interfere with the UA requesting compression, etc.
+                             @QueryParam("encode") String encode )
     {
-        return getFileGeneric( userName, userId, filetype, filename, access_token );
+        if( encode != null && encode.length() > 0 ) {
+            encode = encode.toUpperCase();
+        }
+        return getFileGeneric( userName, userId, filetype, filename, access_token, encode );
     }
 
     @GET

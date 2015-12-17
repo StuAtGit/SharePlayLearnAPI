@@ -1,8 +1,10 @@
 package com.shareplaylearn.resources.test;
 
+import com.amazonaws.util.Base64;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.shareplaylearn.models.UserItem;
+import com.shareplaylearn.models.UserItemManager;
 import com.shareplaylearn.resources.File;
 import com.shareplaylearn.utilities.Exceptions;
 import org.apache.http.HttpEntity;
@@ -49,7 +51,9 @@ public class FileResourceTest {
                             ContentType.APPLICATION_OCTET_STREAM,
                             uploadEntry.getKey()).
                     addTextBody("user_id", userId).
-                    addTextBody("access_token", accessToken).build();
+                    addTextBody("user_name", userName).
+                    addTextBody("access_token", accessToken).
+                    addTextBody("filename",uploadEntry.getKey()).build();
 
             System.out.println("Testing upload of: " + uploadTest.toString());
             HttpPost httpPost = new HttpPost(BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + "/form");
@@ -71,7 +75,10 @@ public class FileResourceTest {
     }
 
     public void testGetGeneric( String fileResource, byte[] testFileBuffer,
-                                boolean addHeader ) throws IOException {
+                                boolean addHeader, String encode ) throws IOException {
+        if( encode != null ) {
+            fileResource += "?encode=" + encode;
+        }
         HttpGet fileGet = new HttpGet(fileResource);
         if( addHeader ) {
             fileGet.addHeader("Authorization", "Bearer " + this.accessToken);
@@ -92,6 +99,9 @@ public class FileResourceTest {
                 throw new RuntimeException(message);
             }
 
+            if( encode.toUpperCase().equals(UserItemManager.AvailableEncodings.BASE64) ) {
+                entity = Base64.decode(entity);
+            }
             if (!Arrays.equals(entity, testFileBuffer)) {
                 String message = "File resource: " + fileResource + " did not have matching bytes!";
                 if (entity == null) {
@@ -105,10 +115,12 @@ public class FileResourceTest {
         }
     }
 
+
     public void testGet( String itemLocation, Path testItemName ) throws IOException {
         byte[] testFileBuffer = Files.readAllBytes(testItemName);
         String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + itemLocation;
-        testGetGeneric(fileResource, testFileBuffer, true);
+        testGetGeneric(fileResource, testFileBuffer, true, null);
+        testGetGeneric(fileResource, testFileBuffer, true, "base64");
     }
 
     public void testGetFileList() throws IOException {

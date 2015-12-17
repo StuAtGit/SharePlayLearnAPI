@@ -23,6 +23,13 @@ import java.util.*;
  * Data here should be safe to cache in Redis (userid but no auth tokens, etc)
  */
 public class UserItemManager {
+    public static class AvailableEncodings {
+        public static final String BASE64 = "BASE64";
+        public static final String IDENTITY = "IDENTITY";
+        public static boolean isAvailable( String encoding ) {
+            return encoding.equals(BASE64) || encoding.equals(IDENTITY);
+        }
+    }
     private static final String ROOT_DIR = "/root/";
 
     private int totalItemQuota = Limits.DEFAULT_ITEM_QUOTA;
@@ -88,7 +95,11 @@ public class UserItemManager {
         return Response.status(200).build();
     }
 
-    public Response getItem( String type, String name ) {
+    public Response getItem( String type, String name, String encoding ) {
+        if( encoding != null && encoding.length() > 0 && !AvailableEncodings.isAvailable(encoding) ) {
+            return Response.status(Response.Status.UNSUPPORTED_MEDIA_TYPE)
+                    .entity("Inner Encoding Type: " + encoding + " not available").build();
+        }
         if( !name.startsWith("/") ) {
             name = "/" + name;
         }
@@ -114,8 +125,15 @@ public class UserItemManager {
                     totalBytesRead += bytesRead;
                 }
                 System.out.println("GET in file resource read: " + totalBytesRead + " bytes.");
-                return Response.status(Response.Status.OK).entity(
-                        Base64.encodeAsString(outputStream.toByteArray())).build();
+                if( encoding == null || encoding.length() == 0 || encoding.equals(AvailableEncodings.IDENTITY) ) {
+                    return Response.status(Response.Status.OK).entity(outputStream.toByteArray()).build();
+                } else if( encoding.equals(AvailableEncodings.BASE64) ) {
+                    return Response.status(Response.Status.OK)
+                            .entity(Base64.encodeAsString(outputStream.toByteArray())).build();
+                } else {
+                    return Response.status(Response.Status.UNSUPPORTED_MEDIA_TYPE)
+                            .entity("Inner Encoding Type: " + encoding + " not available").build();
+                }
             }
         } catch (Exception e) {
             StringWriter sw = new StringWriter();

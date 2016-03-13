@@ -87,7 +87,11 @@ public class UserItemManager {
                         pluginUsed.getPreferredFileExtension() != null &&
                         pluginUsed.getPreferredFileExtension().length() > 0 &&
                         !name.endsWith(pluginUsed.getPreferredFileExtension() ) ) {
-                    name += pluginUsed.getPreferredFileExtension();
+                    String preferredExtension = pluginUsed.getPreferredFileExtension();
+                    if( !preferredExtension.startsWith(".") ) {
+                        preferredExtension = "." + preferredExtension;
+                    }
+                    name += preferredExtension;
                 }
                 this.saveItem(name, uploadEntry.getValue(), contentType, presentationType);
             } else {

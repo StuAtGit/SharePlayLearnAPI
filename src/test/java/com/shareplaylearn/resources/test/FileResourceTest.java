@@ -20,9 +20,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.util.*;
 
 /**
@@ -75,7 +73,8 @@ public class FileResourceTest {
     }
 
     public void testGetGeneric( String fileResource, byte[] testFileBuffer,
-                                boolean addHeader, String encode ) throws IOException {
+                                boolean addHeader, String encode,
+                                boolean verifyContentMatch ) throws IOException {
         if( encode != null ) {
             fileResource += "?encode=" + encode;
         }
@@ -102,12 +101,16 @@ public class FileResourceTest {
             if( encode != null && encode.toUpperCase().equals(UserItemManager.AvailableEncodings.BASE64) ) {
                 entity = Base64.decode(entity);
             }
-            if (!Arrays.equals(entity, testFileBuffer)) {
+            if ( verifyContentMatch && !Arrays.equals(entity, testFileBuffer)) {
                 String message = "File resource: " + fileResource + " did not have matching bytes!";
                 if (entity == null) {
                     message += " entity was null!?";
                 } else {
                     message += " returned buffer  was: " + new String(entity, StandardCharsets.UTF_8);
+                    String[] paths = fileResource.split("/");
+                    String name = paths[paths.length-1];
+                    Path path = FileSystems.getDefault().getPath(name + "_failed");
+                    Files.write( path, testFileBuffer, StandardOpenOption.CREATE );
                 }
                 throw new RuntimeException(message);
             }
@@ -116,11 +119,11 @@ public class FileResourceTest {
     }
 
 
-    public void testGet( String itemLocation, Path testItemName ) throws IOException {
+    public void testGet( String itemLocation, Path testItemName, boolean verifyContentMatch ) throws IOException {
         byte[] testFileBuffer = Files.readAllBytes(testItemName);
         String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + itemLocation;
-        testGetGeneric(fileResource, testFileBuffer, true, null);
-        testGetGeneric(fileResource, testFileBuffer, true, "base64");
+        testGetGeneric(fileResource, testFileBuffer, true, null, verifyContentMatch);
+        testGetGeneric(fileResource, testFileBuffer, true, "base64", verifyContentMatch);
     }
 
     public void testGetFileList() throws IOException {
@@ -151,7 +154,7 @@ public class FileResourceTest {
                 for( UserItem item : filelist ) {
                     if( item.getPreferredLocation().endsWith(uploadEntry.getKey()) ) {
                         Path itemPath = FileSystems.getDefault().getPath( uploadEntry.getValue() );
-                        testGet( item.getPreferredLocation(), itemPath );
+                        testGet( item.getPreferredLocation(), itemPath, true );
                         found = true;
                     }
                 }

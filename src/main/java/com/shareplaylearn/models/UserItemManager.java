@@ -91,9 +91,16 @@ public class UserItemManager {
                     if( !preferredExtension.startsWith(".") ) {
                         preferredExtension = "." + preferredExtension;
                     }
-                    name += preferredExtension;
+                    int extIndex = name.lastIndexOf(".");
+                    if( extIndex > 0 ) {
+                        this.saveItem(name.substring(0, extIndex) + preferredExtension,
+                                uploadEntry.getValue(), contentType, presentationType);
+                    } else {
+                        this.saveItem(name + preferredExtension, uploadEntry.getValue(), contentType, presentationType);
+                    }
+                } else {
+                    this.saveItem(name, uploadEntry.getValue(), contentType, presentationType);
                 }
-                this.saveItem(name, uploadEntry.getValue(), contentType, presentationType);
             } else {
                 log.error( "Upload plugin had an entry with a presentation type of: " + presentationType
                         + " that was not found in the item types defined in the ItemSchema.");
@@ -190,7 +197,7 @@ public class UserItemManager {
      * @return
      */
     public List<UserItem> getItemList() {
-        HashMap<String,HashMap<ItemSchema.PresentationType,String>> itemLocations = getItemLocations();
+        HashMap<String,HashMap<ItemSchema.PresentationType,List<String>>> itemLocations = getItemLocations();
         List<UserItem> itemList = new ArrayList<>();
 
         //on a per-user basis, then name of the item should be unique,
@@ -202,54 +209,49 @@ public class UserItemManager {
         //but this works for now.
         HashMap<String,UserItem> userItems = new HashMap<>();
 
-        for( Map.Entry<String, HashMap<ItemSchema.PresentationType, String>> items : itemLocations.entrySet() ) {
+        for( Map.Entry<String, HashMap<ItemSchema.PresentationType, List<String>>> items : itemLocations.entrySet() ) {
             String contentType = items.getKey();
 
-            for( Map.Entry<ItemSchema.PresentationType, String> item : items.getValue().entrySet() ) {
+            for( Map.Entry<ItemSchema.PresentationType, List<String>> item : items.getValue().entrySet() ) {
                 ItemSchema.PresentationType presentationType = item.getKey();
 
-                String location = item.getValue();
-                String[] path = location.split("/");
-                if( path.length == 0 ) {
-                    log.warn("Found an item path/location with no directory structure: " + location);
-                    continue;
-                }
-                String name = path[path.length-1];
-                log.debug("Got a location: " + location + " for item with name: " + name + " for user: " + this.userName);
-                UserItem userItem = null;
-                if( !userItems.containsKey(name) ) {
-                    //workaround (see above)
-                    if( presentationType.equals(ItemSchema.PresentationType.PREFERRED_PRESENTATION_TYPE) ) {
-                        int extIndex = name.lastIndexOf(".");
-                        if( extIndex > 0 ) {
-                            if( userItems.containsKey(name.substring(0,extIndex)) ) {
-                                userItem = userItems.get(name.substring(0,extIndex));
-                            }
-                        }
+                List<String> locations = item.getValue();
+                for( String location : locations ) {
+                    String[] path = location.split("/");
+                    if (path.length == 0) {
+                        log.warn("Found an item path/location with no directory structure: " + location);
+                        continue;
                     }
-                    userItems.put(name, new UserItem( contentType ) );
-                }
-                if( userItem == null ) {
+                    String name = path[path.length - 1];
+                    //workaround (see above)
+                    int extIndex = name.lastIndexOf(".");
+                    if( extIndex > 0 ) {
+                        name = name.substring(0, extIndex);
+                    }
+                    log.debug("Got a location: " + location + " for item with name: " + name + " for user: " + this.userName);
+                    UserItem userItem = null;
+                    if (!userItems.containsKey(name)) {
+                        userItems.put(name, new UserItem(contentType));
+                    }
                     userItem = userItems.get(name);
-                }
-                userItem.setLocation(presentationType, location);
-                if( presentationType.equals(ItemSchema.PresentationType.PREVIEW_PRESENTATION_TYPE) ) {
-                    userItem.addAttr("altText", "Preview of " + name);
+                    userItem.setLocation(presentationType, location);
+                    if (presentationType.equals(ItemSchema.PresentationType.PREVIEW_PRESENTATION_TYPE)) {
+                        userItem.addAttr("altText", "Preview of " + name);
+                    }
                 }
             }
-
-            for( Map.Entry<String, UserItem> userItem : userItems.entrySet() ) {
-                //Note that this maps to the actual name in all cases (original, preview, preferred w/out added extension)
-                //except when we add an extension to a preferred format of the item.
-                userItem.getValue().addAttr(UploadMetadataFields.DISPLAY_NAME, userItem.getKey());
-                itemList.add(userItem.getValue());
-            }
+        }
+        for( Map.Entry<String, UserItem> userItem : userItems.entrySet() ) {
+            //Note that this maps to the actual name in all cases (original, preview, preferred w/out added extension)
+            //except when we add an extension to a preferred format of the item.
+            userItem.getValue().addAttr(UploadMetadataFields.DISPLAY_NAME, userItem.getKey());
+            itemList.add(userItem.getValue());
         }
         return itemList;
     }
 
-    public HashMap<String,HashMap<ItemSchema.PresentationType,String>> getItemLocations() {
-        HashMap<String,HashMap<ItemSchema.PresentationType,String>> itemLocations = new HashMap<>();
+    public HashMap<String,HashMap<ItemSchema.PresentationType,List<String>>> getItemLocations() {
+        HashMap<String,HashMap<ItemSchema.PresentationType,List<String>>> itemLocations = new HashMap<>();
 
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
@@ -265,7 +267,10 @@ public class UserItemManager {
                     if( !itemLocations.containsKey(contentType) ) {
                         itemLocations.put(contentType, new HashMap<>() );
                     }
-                    itemLocations.get(contentType).put(presentationType, location);
+                    if( !itemLocations.get(contentType).containsKey(presentationType) ) {
+                        itemLocations.get(contentType).put(presentationType, new ArrayList<>());
+                    }
+                    itemLocations.get(contentType).get(presentationType).add(location);
                 }
             }
         }

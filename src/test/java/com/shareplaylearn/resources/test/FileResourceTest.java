@@ -74,7 +74,7 @@ public class FileResourceTest {
 
     public void testGetGeneric( String fileResource, byte[] testFileBuffer,
                                 boolean addHeader, String encode,
-                                boolean verifyContentMatch ) throws IOException {
+                                boolean verifyContentMatch, String testItemName ) throws IOException {
         if( encode != null ) {
             fileResource += "?encode=" + encode;
         }
@@ -102,15 +102,17 @@ public class FileResourceTest {
                 entity = Base64.decode(entity);
             }
             if ( verifyContentMatch && !Arrays.equals(entity, testFileBuffer)) {
-                String message = "File resource: " + fileResource + " did not have matching bytes!";
+                String message = "File resource: " + fileResource + " did not have bytes matching: " + testItemName + " !";
                 if (entity == null) {
                     message += " entity was null!?";
                 } else {
-                    message += " returned buffer  was: " + new String(entity, StandardCharsets.UTF_8);
+                    if( entity.length < 20 ) {
+                        message += " returned buffer  was: " + new String(entity, StandardCharsets.UTF_8);
+                    }
                     String[] paths = fileResource.split("/");
                     String name = paths[paths.length-1];
                     Path path = FileSystems.getDefault().getPath(name + "_failed");
-                    Files.write( path, testFileBuffer, StandardOpenOption.CREATE );
+                    Files.write( path, entity, StandardOpenOption.CREATE );
                 }
                 throw new RuntimeException(message);
             }
@@ -122,8 +124,8 @@ public class FileResourceTest {
     public void testGet( String itemLocation, Path testItemName, boolean verifyContentMatch ) throws IOException {
         byte[] testFileBuffer = Files.readAllBytes(testItemName);
         String fileResource = BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + itemLocation;
-        testGetGeneric(fileResource, testFileBuffer, true, null, verifyContentMatch);
-        testGetGeneric(fileResource, testFileBuffer, true, "base64", verifyContentMatch);
+        testGetGeneric(fileResource, testFileBuffer, true, null, verifyContentMatch, testItemName.toString());
+        testGetGeneric(fileResource, testFileBuffer, true, "base64", verifyContentMatch, testItemName.toString());
     }
 
     public void testGetFileList() throws IOException {

@@ -34,12 +34,10 @@ public class UploadPreprocessor
     implements  UploadPreprocessorPlugin {
 
     List<UploadPreprocessorPlugin> uploadPreprocessorPluginList;
-    private String preferredTag;
     private UploadPreprocessorPlugin processorPluginUsed;
 
     public UploadPreprocessor( List<UploadPreprocessorPlugin> preprocessorPluginList ) {
         this.uploadPreprocessorPluginList = preprocessorPluginList;
-        this.preferredTag = "original";
         this.processorPluginUsed = null;
     }
 
@@ -53,16 +51,16 @@ public class UploadPreprocessor
     }
 
     @Override
-    public Map<String, byte[]> process(byte[] fileBuffer) {
+    public Map<ItemSchema.PresentationType, byte[]> process(byte[] fileBuffer) {
         for( UploadPreprocessorPlugin p : this.uploadPreprocessorPluginList ) {
             if( p.canProcess(fileBuffer) ) {
-                Map<String,byte[]> uploadList = p.process(fileBuffer);
+                Map<ItemSchema.PresentationType,byte[]> uploadList = p.process(fileBuffer);
                 this.processorPluginUsed = p;
                 return uploadList;
             }
         }
-        Map<String,byte[]> defaultList = new HashMap<>();
-        defaultList.put(this.preferredTag, fileBuffer);
+        Map<ItemSchema.PresentationType,byte[]> defaultList = new HashMap<>();
+        defaultList.put(ItemSchema.PresentationType.ORIGINAL_PRESENTATION_TYPE, fileBuffer);
         this.processorPluginUsed = this;
         return defaultList;
     }

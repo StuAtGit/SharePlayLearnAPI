@@ -62,7 +62,7 @@ public class UserItemManager {
         List<UploadPreprocessorPlugin> uploadPreprocessorPlugins = new ArrayList<>();
         uploadPreprocessorPlugins.add(new ImagePreprocessorPlugin());
         UploadPreprocessor uploadPreprocessor = new UploadPreprocessor( uploadPreprocessorPlugins );
-        Map<String,byte[]> uploads = uploadPreprocessor.process(item);
+        Map<ItemSchema.PresentationType,byte[]> uploads = uploadPreprocessor.process(item);
 
         if( uploads.size() == 0 ) {
             throw new InternalErrorException("Upload processor returned empty upload set");
@@ -71,10 +71,10 @@ public class UserItemManager {
         UploadPreprocessorPlugin pluginUsed = uploadPreprocessor.getProcessorPluginUsed();
         String contentType = pluginUsed.getContentType();
 
-        for( Map.Entry<String,byte[]> uploadEntry : uploads.entrySet() ) {
+        for( Map.Entry<ItemSchema.PresentationType,byte[]> uploadEntry : uploads.entrySet() ) {
             boolean found = false;
-            String presentationType = uploadEntry.getKey();
-            for( String type : ItemSchema.PRESENTATION_TYPES) {
+            ItemSchema.PresentationType presentationType = uploadEntry.getKey();
+            for( ItemSchema.PresentationType type : ItemSchema.PRESENTATION_TYPES) {
                 if( presentationType.equals(type) ) {
                     found = true;
                 }
@@ -83,13 +83,13 @@ public class UserItemManager {
                 //this is a little bit of a hack, but is necessary for downloads
                 //using the name of the item to work
                 //OK in user agents (browsers)
-                if( presentationType.equals(ItemSchema.PREFERRED_PRESENTATION_TYPE) &&
+                if( presentationType.equals(ItemSchema.PresentationType.PREFERRED_PRESENTATION_TYPE) &&
                         pluginUsed.getPreferredFileExtension() != null &&
                         pluginUsed.getPreferredFileExtension().length() > 0 &&
                         !name.endsWith(pluginUsed.getPreferredFileExtension() ) ) {
                     name += pluginUsed.getPreferredFileExtension();
                 }
-                this.saveItem(name, uploadEntry.getValue(), presentationType, contentType);
+                this.saveItem(name, uploadEntry.getValue(), contentType, presentationType);
             } else {
                 log.error( "Upload plugin had an entry with a presentation type of: " + presentationType
                         + " that was not found in the item types defined in the ItemSchema.");
@@ -99,21 +99,23 @@ public class UserItemManager {
         return Response.status(200).build();
     }
 
-    public Response getItem( String type, String name, String encoding ) {
+    public Response getItem(String contentType, ItemSchema.PresentationType presentationType,
+                            String name, String encoding ) {
         if( encoding != null && encoding.length() > 0 && !AvailableEncodings.isAvailable(encoding) ) {
             return Response.status(Response.Status.UNSUPPORTED_MEDIA_TYPE)
                     .entity("Inner Encoding Type: " + encoding + " not available").build();
         }
-        if( !name.startsWith("/") ) {
-            name = "/" + name;
-        }
-        name = this.getUserDir() + type + name;
+
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
+
         try
         {
-            S3Object object = s3Client.getObject(ItemSchema.S3_BUCKET, name);
+            S3Object object = s3Client.getObject(
+                    ItemSchema.S3_BUCKET,
+                    getItemLocation(name, contentType, presentationType)
+            );
             try( S3ObjectInputStream inputStream = object.getObjectContent() ) {
                 long contentLength = object.getObjectMetadata().getContentLength();
                 if (contentLength > Limits.MAX_RETRIEVE_SIZE) {
@@ -153,10 +155,10 @@ public class UserItemManager {
     /**
      * Writes items to S3, and item metadata to Redis
      */
-    private void saveItem( String name, byte[] itemData, String presentationType, String contentType )
+    private void saveItem( String name, byte[] itemData, String contentType, ItemSchema.PresentationType presentationType  )
             throws InternalErrorException {
 
-        String itemLocation = this.getItemLocation(name, presentationType, contentType);
+        String itemLocation = this.getItemLocation(name, contentType, presentationType);
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
@@ -184,22 +186,24 @@ public class UserItemManager {
      * @return
      */
     public List<UserItem> getItemList() {
-        HashMap<String,HashMap<String,String>> itemLocations = getItemLocations();
+        HashMap<String,HashMap<ItemSchema.PresentationType,String>> itemLocations = getItemLocations();
         List<UserItem> itemList = new ArrayList<>();
-        for( Map.Entry<String, HashMap<String, String>> items : itemLocations.entrySet() ) {
-            String presentationType = items.getKey();
 
-            //on a per-user basis, then name of the item should be unique,
-            //but variations of it may be stored under different presentation types
-            //(e.g. preview, original)
-            //there is a workaround here because we may add a file extension to some preferred items
-            //we work around it by verifying a preferred item doesn't have an entry that matches without extension
-            //a better fix would be a metadata store fast enough to be usable that stores the original item name
-            //but this works for now.
-            HashMap<String,UserItem> userItems = new HashMap<>();
+        //on a per-user basis, then name of the item should be unique,
+        //but variations of it may be stored under different presentation types
+        //(e.g. preview, original)
+        //there is a workaround here because we may add a file extension to some preferred items
+        //we work around it by verifying a preferred item doesn't have an entry that matches without extension
+        //a better fix would be a metadata store fast enough to be usable that stores the original item name
+        //but this works for now.
+        HashMap<String,UserItem> userItems = new HashMap<>();
 
-            for( Map.Entry<String, String> item : items.getValue().entrySet() ) {
-                String contentType = item.getKey();
+        for( Map.Entry<String, HashMap<ItemSchema.PresentationType, String>> items : itemLocations.entrySet() ) {
+            String contentType = items.getKey();
+
+            for( Map.Entry<ItemSchema.PresentationType, String> item : items.getValue().entrySet() ) {
+                ItemSchema.PresentationType presentationType = item.getKey();
+
                 String location = item.getValue();
                 String[] path = location.split("/");
                 if( path.length == 0 ) {
@@ -207,10 +211,11 @@ public class UserItemManager {
                     continue;
                 }
                 String name = path[path.length-1];
+                log.debug("Got a location: " + location + " for item with name: " + name + " for user: " + this.userName);
                 UserItem userItem = null;
                 if( !userItems.containsKey(name) ) {
                     //workaround (see above)
-                    if( presentationType.equals(ItemSchema.PREFERRED_PRESENTATION_TYPE) ) {
+                    if( presentationType.equals(ItemSchema.PresentationType.PREFERRED_PRESENTATION_TYPE) ) {
                         int extIndex = name.lastIndexOf(".");
                         if( extIndex > 0 ) {
                             if( userItems.containsKey(name.substring(0,extIndex)) ) {
@@ -224,7 +229,7 @@ public class UserItemManager {
                     userItem = userItems.get(name);
                 }
                 userItem.setLocation(presentationType, location);
-                if( presentationType.equals(ItemSchema.PREVIEW_PRESENTATION_TYPE) ) {
+                if( presentationType.equals(ItemSchema.PresentationType.PREVIEW_PRESENTATION_TYPE) ) {
                     userItem.addAttr("altText", "Preview of " + name);
                 }
             }
@@ -239,23 +244,24 @@ public class UserItemManager {
         return itemList;
     }
 
-    public HashMap<String,HashMap<String,String>> getItemLocations() {
-        HashMap<String,HashMap<String,String>> itemLocations = new HashMap<>();
+    public HashMap<String,HashMap<ItemSchema.PresentationType,String>> getItemLocations() {
+        HashMap<String,HashMap<ItemSchema.PresentationType,String>> itemLocations = new HashMap<>();
 
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
 
-        String userDir = this.getUserDir();
-        for( String presentationType : ItemSchema.PRESENTATION_TYPES ) {
-            for( String contentType: ItemSchema.CONTENT_TYPES ) {
+        for( String contentType : ItemSchema.CONTENT_TYPES ) {
+            for( ItemSchema.PresentationType presentationType : ItemSchema.PRESENTATION_TYPES ) {
+
                 ObjectListing listing = s3Client.listObjects( ItemSchema.S3_BUCKET,
-                        userDir + presentationType + "/" + contentType );
+                        this.getItemDirectory(contentType, presentationType) );
+
                 HashSet<String> locations = getExternalItemListing(listing);
                 for( String location : locations ) {
-                    if( !itemLocations.containsKey(presentationType) ) {
-                        itemLocations.put(presentationType, new HashMap<String, String>() );
+                    if( !itemLocations.containsKey(contentType) ) {
+                        itemLocations.put(contentType, new HashMap<>() );
                     }
-                    itemLocations.get(presentationType).put(contentType, location);
+                    itemLocations.get(contentType).put(presentationType, location);
                 }
             }
         }
@@ -305,8 +311,14 @@ public class UserItemManager {
         return ROOT_DIR + this.userName + "/" + this.userId + "/";
     }
 
-    public String getItemLocation( String name, String presentationType, String contentType ) {
-        return this.userDir + presentationType + "/" + contentType + "/" + name;
+    public String getItemDirectory(String contentType,
+                                   ItemSchema.PresentationType presentationType) {
+        return this.userDir + contentType + "/" + presentationType;
+    }
+
+    public String getItemLocation( String name, String contentType,
+                                   ItemSchema.PresentationType presentationType ) {
+        return this.getItemDirectory( contentType, presentationType ) + "/" + name;
     }
 
     /**

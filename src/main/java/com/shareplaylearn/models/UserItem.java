@@ -20,7 +20,8 @@ public class UserItem {
     private String originalLocation;
     private String type;
     private HashMap<String,String> attr;
-    private Logger log;
+    //looks like Gson doesn't know what to do with this, if it's an instance field
+    private static Logger log = LoggerFactory.getLogger(UserItem.class);
 
     public UserItem(String type) {
         this.previewLocation = null;
@@ -45,15 +46,18 @@ public class UserItem {
         return previewLocation;
     }
 
-    public UserItem setLocation( String presentationType, String location ) {
-        if( presentationType.equals(ItemSchema.PREVIEW_PRESENTATION_TYPE) ) {
+    public UserItem setLocation(ItemSchema.PresentationType presentationType, String location ) {
+        if( presentationType.equals(ItemSchema.PresentationType.PREVIEW_PRESENTATION_TYPE) ) {
             return this.setPreviewLocation(location);
-        } else if( presentationType.equals(ItemSchema.ORIGINAL_PRESENTATION_TYPE) ) {
+        } else if( presentationType.equals(ItemSchema.PresentationType.ORIGINAL_PRESENTATION_TYPE) ) {
             if( this.itemLocation == null ) {
                 this.itemLocation = location;
             }
+            if( this.preferredLocation == null ) {
+                this.preferredLocation = location;
+            }
             return this.setOriginalLocation(location);
-        } else if( presentationType.equals(ItemSchema.PREFERRED_PRESENTATION_TYPE) ) {
+        } else if( presentationType.equals(ItemSchema.PresentationType.PREFERRED_PRESENTATION_TYPE) ) {
             this.itemLocation = location;
             return this.setPreferredLocation(location);
         } else {

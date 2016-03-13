@@ -31,32 +31,19 @@ public class StandaloneServer
         this.jettyServer.stop();
     }
 
-    public static class GpioSocketHandler extends WebSocketHandler {
-        @Override
-        public void configure(WebSocketServletFactory factory) {
-            //TODO: work through example here:
-            //TODO: https://github.com/jetty-project/embedded-jetty-websocket-examples/blob/master/native-jetty-websocket-example/src/main/java/org/eclipse/jetty/demo/EventSocket.java
-            ///factory.setCreator(new GpioController());
-        }
-    }
     @Override
     public void run() {
         this.jettyServer = new Server(this.port);
         ServletContextHandler jerseyHandler = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
-        //WebSocketHandler webSocketHandler = new WebSocketHandler.Simple(GpioController.class);
 
         ServletHolder servletHolder = new ServletHolder(new ServletContainer(new SharePlayLearnApi()));
         jerseyHandler.addServlet(servletHolder, "/api/*");
-        //ContextHandler webSocketContext = new ContextHandler(webSocketHandler, "/ws/*");
 
         HandlerList handlers = new HandlerList();
         handlers.addHandler(jerseyHandler);
-        //handlers.addHandler(webSocketContext);
-        
-        jettyServer.setHandler(handlers);
 
+        jettyServer.setHandler(handlers);
         jettyServer.setDumpAfterStart(true);
-//        jettyServer.setDumpBeforeStop(true);
 
         try {
             jettyServer.start();

@@ -139,8 +139,9 @@ public class FileResourceTest {
                 }
                 List<UserItem> filelist;
                 try {
+                    Gson gson = new Gson();
                     Type listType = new TypeToken<ArrayList<UserItem>>(){}.getType();
-                    filelist = new Gson().fromJson(processedHttpResponse.entity, listType);
+                    filelist = gson.fromJson(processedHttpResponse.entity, listType);
                 } catch (Throwable t) {
                     throw new RuntimeException("Failed to parse response entity into json: " + processedHttpResponse.entity +
                             "\n" + Exceptions.asString(t));

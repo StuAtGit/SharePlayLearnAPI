@@ -10,13 +10,38 @@ public class ItemSchema {
      * Something like "mobile" or "crappy_network :D" might be a good addition, though.
      * The Content Types will hopefully grow and grown! We'll see ;)
      */
-    public static final String PREVIEW_PRESENTATION_TYPE = "preview";
-    public static final String ORIGINAL_PRESENTATION_TYPE = "original";
-    public static final String PREFERRED_PRESENTATION_TYPE = "preferred";
-    public static final String[] PRESENTATION_TYPES = {
-            PREVIEW_PRESENTATION_TYPE,
-            ORIGINAL_PRESENTATION_TYPE,
-            PREFERRED_PRESENTATION_TYPE
+    public enum PresentationType {
+        PREVIEW_PRESENTATION_TYPE("preview"),
+        ORIGINAL_PRESENTATION_TYPE("original"),
+        PREFERRED_PRESENTATION_TYPE("preferred");
+        private final String type;
+
+        PresentationType(String type ) {
+            this.type = type;
+        }
+
+        public String toString() {
+            return this.type;
+        }
+
+        public static PresentationType fromString( String type ) {
+            if( type.equals("preview") ) {
+                return PREVIEW_PRESENTATION_TYPE;
+            } else if( type.equals("original") ) {
+                return ORIGINAL_PRESENTATION_TYPE;
+            } else if( type.equals("preferred") ) {
+                return PREFERRED_PRESENTATION_TYPE;
+            } else {
+                throw new IllegalArgumentException("Invalid presentation type: " + type);
+            }
+        }
+
+    }
+
+    public static final PresentationType[] PRESENTATION_TYPES = {
+            PresentationType.PREVIEW_PRESENTATION_TYPE,
+            PresentationType.ORIGINAL_PRESENTATION_TYPE,
+            PresentationType.PREFERRED_PRESENTATION_TYPE
     };
 
     public static final String UNKNOWN_CONTENT_TYPE = "unknown";

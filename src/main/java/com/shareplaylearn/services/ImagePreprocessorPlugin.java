@@ -23,7 +23,6 @@ public class ImagePreprocessorPlugin
     public static final int PREVIEW_WIDTH = 200;
     public static final int RESIZE_LIMIT = 1024;
     public static final String RESIZED_TAG = "resized";
-    private String preferredTag;
     private String preferredFileExtension;
     //set when we calculate a preview
     private int lastPreviewHeight;
@@ -35,7 +34,6 @@ public class ImagePreprocessorPlugin
         this.imageBuffer = null;
         this.lastPreviewHeight = -1;
         this.lastHeight = -1;
-        this.preferredTag = ItemSchema.ORIGINAL_PRESENTATION_TYPE;
         this.preferredFileExtension = "";
     }
 
@@ -65,10 +63,10 @@ public class ImagePreprocessorPlugin
     }
 
     @Override
-    public Map<String, byte[]> process(byte[] fileBuffer) {
-        HashMap<String,byte[]> uploadList = new HashMap<>();
+    public Map<ItemSchema.PresentationType, byte[]> process(byte[] fileBuffer) {
+        HashMap<ItemSchema.PresentationType, byte[]> uploadList = new HashMap<>();
 
-        uploadList.put(ItemSchema.ORIGINAL_PRESENTATION_TYPE, fileBuffer);
+        uploadList.put(ItemSchema.PresentationType.ORIGINAL_PRESENTATION_TYPE, fileBuffer);
 
         int originalWidth = -1;
         BufferedImage bufferedImage = null;
@@ -76,7 +74,7 @@ public class ImagePreprocessorPlugin
             bufferedImage = ImageIO.read(this.toImageInputStream(fileBuffer));
             originalWidth = bufferedImage.getWidth();
             byte[] previewBuffer = shrinkImageToWidth(bufferedImage, PREVIEW_WIDTH);
-            uploadList.put(ItemSchema.PREVIEW_PRESENTATION_TYPE, previewBuffer);
+            uploadList.put(ItemSchema.PresentationType.PREVIEW_PRESENTATION_TYPE, previewBuffer);
             this.lastPreviewHeight = this.lastHeight;
         } catch( IOException e ) {
             System.out.println(Exceptions.asString(e));
@@ -86,8 +84,7 @@ public class ImagePreprocessorPlugin
                 && originalWidth > RESIZE_LIMIT ) {
             try {
                 byte[] modifiedBuffer = shrinkImageToWidth(bufferedImage, RESIZE_LIMIT);
-                uploadList.put(ItemSchema.PREFERRED_PRESENTATION_TYPE,modifiedBuffer);
-                this.preferredTag = RESIZED_TAG;
+                uploadList.put(ItemSchema.PresentationType.PREFERRED_PRESENTATION_TYPE,modifiedBuffer);
                 this.preferredFileExtension = "jpg";
             } catch (IOException e) {
                 e.printStackTrace();

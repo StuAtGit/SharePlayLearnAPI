@@ -3,6 +3,7 @@ package com.shareplaylearn.resources;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.shareplaylearn.InternalErrorException;
+import com.shareplaylearn.models.ItemSchema;
 import com.shareplaylearn.models.UserItemManager;
 import com.shareplaylearn.utilities.Exceptions;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
@@ -156,8 +157,9 @@ public class File {
      * @param access_token
      * @return
      */
-    public Response getFileGeneric( String userName, String userId, String filetype, String filename,
-                                    String access_token, String encoding )
+    public Response getFileGeneric(String userName, String userId, String contentType,
+                                   ItemSchema.PresentationType presentationType, String filename,
+                                   String access_token, String encoding )
     {
         if( userId == null || userId.trim().length() == 0  ) {
             return Response.status(Response.Status.BAD_REQUEST).entity("No user id").build();
@@ -173,7 +175,8 @@ public class File {
         {
             Response tokenResponse = OAuth2Callback.validateToken(access_token);
             if( tokenResponse.getStatus() == Response.Status.OK.getStatusCode() ) {
-                return userItemManager.getItem( filetype, filename, encoding );
+                return userItemManager.getItem( contentType, presentationType,
+                        filename, encoding );
             }
             return tokenResponse;
         }
@@ -181,10 +184,11 @@ public class File {
 
     @GET
     @Produces( MediaType.APPLICATION_OCTET_STREAM )
-    @Path("/{userName}/{userId}/{filetype}/{filename}")
+    @Path("/{userName}/{userId}/{filetype}/{presentationType}/{filename}")
     public Response getFile( @PathParam("userName") String userName,
                              @PathParam("userId") String userId,
                              @PathParam("filetype") String filetype,
+                             @PathParam("presentationType") String presentationTypeArg,
                              @PathParam("filename") String filename,
                              @HeaderParam("Authorization") String access_token,
                              //Not entirely happy with this - Accept-Encoding would be more correct
@@ -195,7 +199,14 @@ public class File {
         if( encode != null && encode.length() > 0 ) {
             encode = encode.toUpperCase();
         }
-        return getFileGeneric( userName, userId, filetype, filename, access_token, encode );
+        ItemSchema.PresentationType presentationType;
+        try {
+            presentationType = ItemSchema.PresentationType.fromString(presentationTypeArg);
+        } catch (IllegalArgumentException e ) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
+        }
+        return getFileGeneric( userName, userId, filetype, presentationType, filename, access_token, encode );
+
     }
 
     @GET

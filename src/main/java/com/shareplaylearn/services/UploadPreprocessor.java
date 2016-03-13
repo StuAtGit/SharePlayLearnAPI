@@ -1,6 +1,6 @@
 package com.shareplaylearn.services;
 
-import com.amazonaws.services.cloudsearchdomain.model.UploadDocumentsRequest;
+import com.shareplaylearn.models.ItemSchema;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +19,9 @@ import java.util.Map;
  *   We will always have the original contents, and sometimes the original content
  *   will be the preferred content. We may or may not have a preview.
  *
+ *   Note this also serves as the default upload processor plugin, as well as the overall
+ *   upload processor that dispatches to the first processor plugin that claims it can handle the given bytes.
+ *
  *   Example:
  *   An image may:
  *     - be resized, and we may wish to return the resized image as the a "preferred" content, in the case of a large
@@ -32,12 +35,12 @@ public class UploadPreprocessor
 
     List<UploadPreprocessorPlugin> uploadPreprocessorPluginList;
     private String preferredTag;
-    private UploadPreprocessorPlugin lastUsedProcessor;
+    private UploadPreprocessorPlugin processorPluginUsed;
 
     public UploadPreprocessor( List<UploadPreprocessorPlugin> preprocessorPluginList ) {
         this.uploadPreprocessorPluginList = preprocessorPluginList;
         this.preferredTag = "original";
-        this.lastUsedProcessor = null;
+        this.processorPluginUsed = null;
     }
 
     @Override
@@ -45,8 +48,8 @@ public class UploadPreprocessor
         return true;
     }
 
-    public UploadPreprocessorPlugin getLastUsedProcessor() {
-        return lastUsedProcessor;
+    public UploadPreprocessorPlugin getProcessorPluginUsed() {
+        return processorPluginUsed;
     }
 
     @Override
@@ -54,19 +57,23 @@ public class UploadPreprocessor
         for( UploadPreprocessorPlugin p : this.uploadPreprocessorPluginList ) {
             if( p.canProcess(fileBuffer) ) {
                 Map<String,byte[]> uploadList = p.process(fileBuffer);
-                this.preferredTag = p.getPreferredTag();
-                this.lastUsedProcessor = p;
+                this.processorPluginUsed = p;
                 return uploadList;
             }
         }
         Map<String,byte[]> defaultList = new HashMap<>();
         defaultList.put(this.preferredTag, fileBuffer);
-        this.lastUsedProcessor = this;
+        this.processorPluginUsed = this;
         return defaultList;
     }
 
     @Override
-    public String getPreferredTag() {
-        return this.preferredTag;
+    public String getPreferredFileExtension() {
+        return "";
+    }
+
+    @Override
+    public String getContentType() {
+        return ItemSchema.UNKNOWN_CONTENT_TYPE;
     }
 }

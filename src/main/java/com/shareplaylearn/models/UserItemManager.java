@@ -9,6 +9,9 @@ import com.shareplaylearn.services.ImagePreprocessorPlugin;
 import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.services.UploadPreprocessor;
 import com.shareplaylearn.services.UploadPreprocessorPlugin;
+import com.shareplaylearn.utilities.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -34,6 +37,7 @@ public class UserItemManager {
 
     private int totalItemQuota = Limits.DEFAULT_ITEM_QUOTA;
     private HashMap<String,Integer> itemQuota;
+    private Logger log;
 
     private String userName;
     private String userId;
@@ -44,8 +48,9 @@ public class UserItemManager {
         this.userId = userId;
         this.userDir = this.getUserDir();
         this.itemQuota = new HashMap<>();
-        this.itemQuota.put(ItemSchema.IMAGE_TYPE, Limits.DEFAULT_ITEM_QUOTA);
-        this.itemQuota.put(ItemSchema.UNKNOWN_TYPE, Limits.DEFAULT_ITEM_QUOTA / 2);
+        this.itemQuota.put(ItemSchema.IMAGE_CONTENT_TYPE, Limits.DEFAULT_ITEM_QUOTA);
+        this.itemQuota.put(ItemSchema.UNKNOWN_CONTENT_TYPE, Limits.DEFAULT_ITEM_QUOTA / 2);
+        this.log = LoggerFactory.getLogger(UserItemManager.class);
     }
 
     public Response addItem( String name, byte[] item ) throws InternalErrorException {
@@ -61,37 +66,36 @@ public class UserItemManager {
 
         if( uploads.size() == 0 ) {
             throw new InternalErrorException("Upload processor returned empty upload set");
-        } else if( !uploads.containsKey(uploadPreprocessor.getPreferredTag()) ) {
-            throw new InternalErrorException("Upload processor had no preferred tag! Not sure what to do.");
-        }
-        String type = ItemSchema.UNKNOWN_TYPE;
-
-        //TODO: move this decision into the processors themselves ?
-        //TODO: will likely become much more important as we add types
-        if( uploadPreprocessor.getLastUsedProcessor() instanceof  ImagePreprocessorPlugin ) {
-            type = ItemSchema.IMAGE_TYPE;
         }
 
-        if(  uploads.containsKey(ImagePreprocessorPlugin.PREVIEW_TAG) ) {
-            byte[] preview = uploads.get(ImagePreprocessorPlugin.PREVIEW_TAG);
-            this.saveItem( name, preview, ItemSchema.PREVIEW_IMAGE_TYPE );
-        }
-        //the preferred tag could equal "original", but if it is not, we save off the original
-        //somewhere else, and note that fact in the metadata
-        boolean beenResized = false;
-        if( !uploadPreprocessor.getPreferredTag().equals(ImagePreprocessorPlugin.ORIGINAL_TAG) ) {
-            byte[] original = uploads.get(ImagePreprocessorPlugin.ORIGINAL_TAG);
-            this.saveItem( name, original, ItemSchema.ORIGINAL_IMAGE_TYPE );
-            beenResized = true;
+        UploadPreprocessorPlugin pluginUsed = uploadPreprocessor.getProcessorPluginUsed();
+        String contentType = pluginUsed.getContentType();
+
+        for( Map.Entry<String,byte[]> uploadEntry : uploads.entrySet() ) {
+            boolean found = false;
+            String presentationType = uploadEntry.getKey();
+            for( String type : ItemSchema.PRESENTATION_TYPES) {
+                if( presentationType.equals(type) ) {
+                    found = true;
+                }
+            }
+            if( found ) {
+                //this is a little bit of a hack, but is necessary for downloads
+                //using the name of the item to work
+                //OK in user agents (browsers)
+                if( presentationType.equals(ItemSchema.PREFERRED_PRESENTATION_TYPE) &&
+                        pluginUsed.getPreferredFileExtension() != null &&
+                        pluginUsed.getPreferredFileExtension().length() > 0 &&
+                        !name.endsWith(pluginUsed.getPreferredFileExtension() ) ) {
+                    name += pluginUsed.getPreferredFileExtension();
+                }
+                this.saveItem(name, uploadEntry.getValue(), presentationType, contentType);
+            } else {
+                log.error( "Upload plugin had an entry with a presentation type of: " + presentationType
+                        + " that was not found in the item types defined in the ItemSchema.");
+            }
         }
 
-        //if we resized, then it's a jpg now.
-        if( !name.endsWith(".jpg") && beenResized ) {
-            name += ".jpg";
-        }
-
-        byte[] preferredUpload = uploads.get(uploadPreprocessor.getPreferredTag());
-        this.saveItem(name, preferredUpload, type);
         return Response.status(200).build();
     }
 
@@ -124,7 +128,7 @@ public class UserItemManager {
                     outputStream.write(buffer, 0, bytesRead);
                     totalBytesRead += bytesRead;
                 }
-                System.out.println("GET in file resource read: " + totalBytesRead + " bytes.");
+                log.debug("GET in file resource read: " + totalBytesRead + " bytes.");
                 if( encoding == null || encoding.length() == 0 || encoding.equals(AvailableEncodings.IDENTITY) ) {
                     return Response.status(Response.Status.OK).entity(outputStream.toByteArray()).build();
                 } else if( encoding.equals(AvailableEncodings.BASE64) ) {
@@ -140,6 +144,8 @@ public class UserItemManager {
             PrintWriter pw = new PrintWriter(sw);
             pw.println("\nFailed to retrieve: " + name);
             e.printStackTrace(pw);
+            log.warn("Failed to retrieve: " + name);
+            log.info(Exceptions.asString(e));
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(sw.toString()).build();
         }
     }
@@ -147,15 +153,16 @@ public class UserItemManager {
     /**
      * Writes items to S3, and item metadata to Redis
      */
-    private void saveItem( String name, byte[] itemData, String type ) throws InternalErrorException {
+    private void saveItem( String name, byte[] itemData, String presentationType, String contentType )
+            throws InternalErrorException {
 
-        String itemLocation = this.getItemLocation(name, type);
+        String itemLocation = this.getItemLocation(name, presentationType, contentType);
         AmazonS3Client s3Client = new AmazonS3Client(
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(itemData);
         ObjectMetadata metadata = this.makeBasicMetadata(itemData.length, false);
-        metadata.addUserMetadata(UploadMetadataFields.OBJECT_TYPE, type);
+        metadata.addUserMetadata(UploadMetadataFields.CONTENT_TYPE, contentType);
         //TODO: save this metadata, along with location, to local Redis
         s3Client.putObject(ItemSchema.S3_BUCKET, itemLocation, byteArrayInputStream, metadata);
     }
@@ -176,48 +183,62 @@ public class UserItemManager {
      * @return
      */
     public List<UserItem> getItemList() {
-        HashMap<String,HashSet<String>> itemLocations = getItemLocations();
+        HashMap<String,HashMap<String,String>> itemLocations = getItemLocations();
         List<UserItem> itemList = new ArrayList<>();
-        for( String location : itemLocations.get(ItemSchema.IMAGE_TYPE) ) {
-            String[] path = location.split("/");
-            String name = path[path.length-1];
-            String previewPath = this.makeExternalLocation(
-                    this.getItemLocation(name, ItemSchema.PREVIEW_IMAGE_TYPE) );
-            UserItem userItem;
-            if( itemLocations.get(ItemSchema.PREVIEW_IMAGE_TYPE).contains(previewPath) ) {
-                userItem  = new UserItem( location, previewPath, null, ItemSchema.IMAGE_TYPE);
-                userItem.addAttr("altText", "Preview of " + name);
-                //for now, leave it to the browser to figure out height & width of preview..
-                //(until we have a metadata store for that stuff)
-            } else {
-                userItem = new UserItem(location, null, null, ItemSchema.IMAGE_TYPE);
+        for( Map.Entry<String, HashMap<String, String>> items : itemLocations.entrySet() ) {
+            String presentationType = items.getKey();
+
+            //on a per-user basis, then name of the item should be unique,
+            //but variations of it may be stored under different presentation types
+            //(e.g. preview, original)
+            HashMap<String,UserItem> userItems = new HashMap<>();
+
+            for( Map.Entry<String, String> item : items.getValue().entrySet() ) {
+                String contentType = item.getKey();
+                String location = item.getValue();
+                String[] path = location.split("/");
+                if( path.length == 0 ) {
+                    log.warn("Found an item path/location with no directory structure: " + location);
+                    continue;
+                }
+                String name = path[path.length-1];
+                if( !userItems.containsKey(name) ) {
+                    userItems.put(name, new UserItem( contentType ) );
+                }
+                UserItem userItem = userItems.get(name);
+                userItem.setLocation(presentationType, location);
+                if( presentationType.equals(ItemSchema.PREVIEW_PRESENTATION_TYPE) ) {
+                    userItem.addAttr("altText", "Preview of " + name);
+                }
             }
-            itemList.add(userItem);
-        }
-        for( String location : itemLocations.get(ItemSchema.UNKNOWN_TYPE) ) {
-            UserItem userItem = new UserItem(location, null, null, ItemSchema.UNKNOWN_TYPE);
-            itemList.add(userItem);
+
+            for( Map.Entry<String, UserItem> userItem : userItems.entrySet() ) {
+                userItem.getValue().addAttr(UploadMetadataFields.DISPLAY_NAME, userItem.getKey());
+                itemList.add(userItem.getValue());
+            }
         }
         return itemList;
     }
 
-    public HashMap<String,HashSet<String>> getItemLocations() {
-        HashMap<String,HashSet<String>> itemLocations = new HashMap<>();
+    public HashMap<String,HashMap<String,String>> getItemLocations() {
+        HashMap<String,HashMap<String,String>> itemLocations = new HashMap<>();
 
-        AmazonS3Client s3Client = new AmazonS3Client(
-                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
-        String imageDir = this.getUserDir() + ItemSchema.IMAGE_TYPE;
-        String previewDir = this.getUserDir() + ItemSchema.PREVIEW_IMAGE_TYPE;
-        String originalDir = this.getUserDir() + ItemSchema.ORIGINAL_IMAGE_TYPE;
-        String unknownDir = this.getUserDir() + ItemSchema.UNKNOWN_TYPE;
-
-        ObjectListing imageListing = s3Client.listObjects(ItemSchema.S3_BUCKET, imageDir);
-        ObjectListing previewListing = s3Client.listObjects(ItemSchema.S3_BUCKET, previewDir);
-        ObjectListing unknownItemListing = s3Client.listObjects(ItemSchema.S3_BUCKET, unknownDir);
-
-        itemLocations.put(ItemSchema.IMAGE_TYPE, getExternalItemListing(imageListing));
-        itemLocations.put(ItemSchema.UNKNOWN_TYPE, getExternalItemListing(unknownItemListing));
-        itemLocations.put(ItemSchema.PREVIEW_IMAGE_TYPE, getExternalItemListing(previewListing));
+//        AmazonS3Client s3Client = new AmazonS3Client(
+//                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
+//        String imageDir = this.getUserDir() + ItemSchema.IMAGE_CONTENT_TYPE;
+//        String previewDir = this.getUserDir() + ItemSchema.PREVIEW_IMAGE_TYPE;
+//        String originalDir = this.getUserDir() + ItemSchema.ORIGINAL_IMAGE_TYPE;
+//        String unknownDir = this.getUserDir() + ItemSchema.UNKNOWN_CONTENT_TYPE;
+//
+//        ObjectListing imageListing = s3Client.listObjects(ItemSchema.S3_BUCKET, imageDir);
+//        ObjectListing previewListing = s3Client.listObjects(ItemSchema.S3_BUCKET, previewDir);
+//        ObjectListing unknownItemListing = s3Client.listObjects(ItemSchema.S3_BUCKET, unknownDir);
+//        ObjectListing originalItemListing = s3Client.listObjects(ItemSchema.S3_BUCKET, originalDir);
+//
+//        itemLocations.put(ItemSchema.IMAGE_CONTENT_TYPE, getExternalItemListing(imageListing));
+//        itemLocations.put(ItemSchema.UNKNOWN_CONTENT_TYPE, getExternalItemListing(unknownItemListing));
+//        itemLocations.put(ItemSchema.PREVIEW_IMAGE_TYPE, getExternalItemListing(previewListing));
+//        itemLocations.put(ItemSchema.ORIGINAL_IMAGE_TYPE, getExternalItemListing(originalItemListing));
         return itemLocations;
     }
 
@@ -227,13 +248,14 @@ public class UserItemManager {
             String externalPath = makeExternalLocation(obj.getKey());
             if( externalPath != null ) {
                 itemLocations.add(externalPath);
-                System.out.println("External path was " + externalPath);
+                log.debug("External path was " + externalPath);
             } else {
-                System.out.println("External path for object list was null?");
+                log.info("External path for object list was null?");
             }
         }
         return itemLocations;
     }
+
     /**
      * Translates an internal S3 path to the path used in the external API
      * @param internalPath
@@ -263,8 +285,8 @@ public class UserItemManager {
         return ROOT_DIR + this.userName + "/" + this.userId + "/";
     }
 
-    public String getItemLocation( String name, String type ) {
-        return this.userDir + type + "/" + name;
+    public String getItemLocation( String name, String presentationType, String contentType ) {
+        return this.userDir + presentationType + "/" + contentType + "/" + name;
     }
 
     /**
@@ -279,11 +301,11 @@ public class UserItemManager {
     private Response checkObjectListingSize( ObjectListing objectListing, int maxSize )
     {
         if( objectListing.isTruncated() && objectListing.getMaxKeys() >= maxSize ) {
-            System.out.println("Error, too many uploads");
+            log.error("Error, too many uploads");
             return Response.status(418).entity("I'm a teapot! j/k - not enough space " + maxSize).build();
         }
         if( objectListing.getObjectSummaries().size() >= maxSize ) {
-            System.out.println("Error, too many uploads");
+            log.error("Error, too many uploads");
             return Response.status(418).entity("I'm a teapot! Er, well, at least I can't hold " + maxSize + " stuff.").build();
         }
         return Response.status(Response.Status.OK).entity("OK").build();

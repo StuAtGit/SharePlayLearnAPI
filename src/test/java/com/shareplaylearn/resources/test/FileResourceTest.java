@@ -148,9 +148,9 @@ public class FileResourceTest {
                 System.out.println("Got filelist: " + processedHttpResponse.entity);
                 boolean found = false;
                 for( UserItem item : filelist ) {
-                    if( item.getItemLocation().endsWith(uploadEntry.getKey()) ) {
+                    if( item.getPreferredLocation().endsWith(uploadEntry.getKey()) ) {
                         Path itemPath = FileSystems.getDefault().getPath( uploadEntry.getValue() );
-                        testGet( item.getItemLocation(), itemPath );
+                        testGet( item.getPreferredLocation(), itemPath );
                         found = true;
                     }
                 }

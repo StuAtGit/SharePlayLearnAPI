@@ -1,5 +1,8 @@
 package com.shareplaylearn.models;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.HashMap;
 
 /**
@@ -7,35 +10,70 @@ import java.util.HashMap;
  */
 public class UserItem {
 
+    //this field is for backward-compability with current UI code
+    //once the UI is updated, remove it.
+    //it should be set to the preferred location, unless that does not exist,
+    //and then it should be set to the original location
     private String itemLocation;
+    private String preferredLocation;
     private String previewLocation;
     private String originalLocation;
     private String type;
     private HashMap<String,String> attr;
+    private Logger log;
 
-    public UserItem(String itemLocation, String previewLocation, String originalLocation, String type) {
-        this.previewLocation = previewLocation;
-        this.originalLocation = originalLocation;
-        this.itemLocation = itemLocation;
+    public UserItem(String type) {
+        this.previewLocation = null;
+        this.originalLocation = null;
+        this.preferredLocation = null;
+        this.itemLocation = null;
         this.type = type;
         this.attr = new HashMap<>();
+        this.log = LoggerFactory.getLogger(UserItem.class);
+    }
+
+    public UserItem(String preferredLocation, String previewLocation, String originalLocation, String type) {
+        this.previewLocation = previewLocation;
+        this.originalLocation = originalLocation;
+        this.preferredLocation = preferredLocation;
+        this.type = type;
+        this.attr = new HashMap<>();
+        this.log = LoggerFactory.getLogger(UserItem.class);
     }
 
     public String getPreviewLocation() {
         return previewLocation;
     }
 
-    public UserItem setPreviewLocation(String previewLocation) {
+    public UserItem setLocation( String presentationType, String location ) {
+        if( presentationType.equals(ItemSchema.PREVIEW_PRESENTATION_TYPE) ) {
+            return this.setPreviewLocation(location);
+        } else if( presentationType.equals(ItemSchema.ORIGINAL_PRESENTATION_TYPE) ) {
+            if( this.itemLocation == null ) {
+                this.itemLocation = location;
+            }
+            return this.setOriginalLocation(location);
+        } else if( presentationType.equals(ItemSchema.PREFERRED_PRESENTATION_TYPE) ) {
+            this.itemLocation = location;
+            return this.setPreferredLocation(location);
+        } else {
+            String message = "Tried to set location with an unrecognized presentation type";
+            log.warn( message );
+            throw new IllegalArgumentException( message );
+        }
+    }
+
+    private UserItem setPreviewLocation(String previewLocation) {
         this.previewLocation = previewLocation;
         return this;
     }
 
-    public String getItemLocation() {
-        return itemLocation;
+    public String getPreferredLocation() {
+        return preferredLocation;
     }
 
-    public UserItem setItemLocation(String itemLocation) {
-        this.itemLocation = itemLocation;
+    private UserItem setPreferredLocation(String preferredLocation) {
+        this.preferredLocation = preferredLocation;
         return this;
     }
 
@@ -57,7 +95,7 @@ public class UserItem {
         return originalLocation;
     }
 
-    public UserItem setOriginalLocation(String originalLocation) {
+    private UserItem setOriginalLocation(String originalLocation) {
         this.originalLocation = originalLocation;
         return this;
     }

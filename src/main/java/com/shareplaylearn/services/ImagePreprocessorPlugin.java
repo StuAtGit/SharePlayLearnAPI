@@ -1,5 +1,6 @@
 package com.shareplaylearn.services;
 
+import com.shareplaylearn.models.ItemSchema;
 import com.shareplaylearn.utilities.Exceptions;
 
 import javax.imageio.ImageIO;
@@ -23,6 +24,7 @@ public class ImagePreprocessorPlugin
     public static final int RESIZE_LIMIT = 1024;
     public static final String RESIZED_TAG = "resized";
     private String preferredTag;
+    private String preferredFileExtension;
     //set when we calculate a preview
     private int lastPreviewHeight;
     //always set when we adjust the height,
@@ -33,12 +35,18 @@ public class ImagePreprocessorPlugin
         this.imageBuffer = null;
         this.lastPreviewHeight = -1;
         this.lastHeight = -1;
-        this.preferredTag = ORIGINAL_TAG;
+        this.preferredTag = ItemSchema.ORIGINAL_PRESENTATION_TYPE;
+        this.preferredFileExtension = "";
     }
 
     @Override
-    public String getPreferredTag() {
-        return this.preferredTag;
+    public String getPreferredFileExtension() {
+        return this.preferredFileExtension;
+    }
+
+    @Override
+    public String getContentType() {
+        return ItemSchema.IMAGE_CONTENT_TYPE;
     }
 
     @Override
@@ -60,7 +68,7 @@ public class ImagePreprocessorPlugin
     public Map<String, byte[]> process(byte[] fileBuffer) {
         HashMap<String,byte[]> uploadList = new HashMap<>();
 
-        uploadList.put(ORIGINAL_TAG, fileBuffer);
+        uploadList.put(ItemSchema.ORIGINAL_PRESENTATION_TYPE, fileBuffer);
 
         int originalWidth = -1;
         BufferedImage bufferedImage = null;
@@ -68,7 +76,7 @@ public class ImagePreprocessorPlugin
             bufferedImage = ImageIO.read(this.toImageInputStream(fileBuffer));
             originalWidth = bufferedImage.getWidth();
             byte[] previewBuffer = shrinkImageToWidth(bufferedImage, PREVIEW_WIDTH);
-            uploadList.put(PREVIEW_TAG, previewBuffer);
+            uploadList.put(ItemSchema.PREVIEW_PRESENTATION_TYPE, previewBuffer);
             this.lastPreviewHeight = this.lastHeight;
         } catch( IOException e ) {
             System.out.println(Exceptions.asString(e));
@@ -78,8 +86,9 @@ public class ImagePreprocessorPlugin
                 && originalWidth > RESIZE_LIMIT ) {
             try {
                 byte[] modifiedBuffer = shrinkImageToWidth(bufferedImage, RESIZE_LIMIT);
-                uploadList.put(RESIZED_TAG,modifiedBuffer);
+                uploadList.put(ItemSchema.PREFERRED_PRESENTATION_TYPE,modifiedBuffer);
                 this.preferredTag = RESIZED_TAG;
+                this.preferredFileExtension = "jpg";
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -118,60 +127,4 @@ public class ImagePreprocessorPlugin
         System.out.println("Returning a preview height of " + this.lastPreviewHeight);
         return this.lastPreviewHeight;
     }
-
- /*   private void processImageUpload( byte[] fileBuffer, BufferedImage bufferedImage, String filename,
-                                     String userId, ObjectMetadata fileMetadata,
-                                     AmazonS3Client s3Client ) throws IOException {
-        ObjectMetadata previewMetadata = new ObjectMetadata();
-        previewMetadata.addUserMetadata("IsPreview", "true");
-        previewMetadata.addUserMetadata("IsPreviewOf", filename);
-        String publicField = fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD);
-        if( publicField != null ) {
-            previewMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
-        } else {
-            System.out.println("Public field was null?");
-        }
-        previewMetadata.setContentEncoding(fileMetadata.getContentEncoding());
-        previewMetadata.setContentLength(previewContentLength.get());
-        String previewKey = "/" + userId + "/" + "Preview-" + filename;
-        s3Client.putObject(S3_BUCKET, previewKey, previewInputStream, previewMetadata);
-        previewInputStream.close();
-
-        *//**
-         * TODO: pull this out into an ImageProcessing class (factor out keys like "HasOriginal" while we're at it).
-         * (perhaps even an tryFile() method that returns an Image if it is one, and null otherwise)
-         * Also, have it create a FileList full of FileListEntries (see below).
-         * We'll need to wipe the S3 repo to rebuild it - since we're doing that, might as well create
-         * /image /[ type ] subcategory handling code, and start with that.
-         *
-         *THEN we can update the ShareMyStuff template to process the new itemlist entries, and
-         *     create previews w/ popup links, etc.
-         *
-         *NEXT - NOTES! Markdown! HTML! Might be a nice way to transition to the Learn page
-         *       (by creating tools for tutorial creation)
-         *//*
-        if( width > resizeWidth ) {
-            String originalKey = "/" + userId + "/" + "Original-" + filename;
-            AtomicInteger resizedContentLenth = new AtomicInteger(0);
-            ByteArrayInputStream resizedInputStream = shrinkImageToWidth(bufferedImage, resizeWidth, resizedContentLenth);
-            ObjectMetadata resizedMetadata = new ObjectMetadata();
-            resizedMetadata.addUserMetadata("HasOriginal", "true");
-            resizedMetadata.addUserMetadata("HasPreview", "true");
-            resizedMetadata.addUserMetadata("PreviewKey", previewKey);
-            resizedMetadata.addUserMetadata("OriginalKey",originalKey );
-            resizedMetadata.addUserMetadata(FileMetadata.PUBLIC_FIELD, fileMetadata.getUserMetaDataOf(FileMetadata.PUBLIC_FIELD));
-            resizedMetadata.setContentEncoding(fileMetadata.getContentEncoding());
-            resizedMetadata.setContentLength(resizedContentLenth.get());
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, resizedInputStream, resizedMetadata);
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
-            fileMetadata.addUserMetadata("IsOriginal", "true");
-            s3Client.putObject(S3_BUCKET, originalKey, byteArrayInputStream, fileMetadata);
-        } else {
-            //basically, we just redeclare so the stream is reset
-            fileMetadata.addUserMetadata("HasOriginal", "false");
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(fileBuffer);
-            s3Client.putObject(S3_BUCKET, "/" + userId + "/" + filename, byteArrayInputStream, fileMetadata);
-        }
-    }
-*/
 }

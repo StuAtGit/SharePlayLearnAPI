@@ -1,6 +1,5 @@
 package com.shareplaylearn.resources;
 
-import com.amazonaws.services.ec2.model.StatusType;
 import com.google.gson.Gson;
 import com.shareplaylearn.services.SecretsService;
 import com.shareplaylearn.utilities.Exceptions;

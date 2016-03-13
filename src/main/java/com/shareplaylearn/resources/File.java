@@ -1,22 +1,17 @@
 package com.shareplaylearn.resources;
 
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.shareplaylearn.InternalErrorException;
-import com.shareplaylearn.models.*;
-import com.shareplaylearn.services.*;
+import com.shareplaylearn.models.UserItemManager;
 import com.shareplaylearn.utilities.Exceptions;
-import com.shareplaylearn.utilities.OauthPasswordFlow;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.*;
+import java.io.InputStream;
 import java.net.InetAddress;
 
 /**
@@ -25,11 +20,6 @@ import java.net.InetAddress;
 @Path(File.RESOURCE_BASE)
 public class File {
 
-    private static final String MODAL_DIV_ID = "OpenImageModal";
-    private static final String MODAL_IMAGE_CLASS = "modalImagePopup";
-    //we store this in the display html to indicate the token should be replaced
-    //when sent to the user.
-    private static final String ACCESS_TOKEN_MARKER = "{{ACCESS_TOKEN}}";
     public static final String RESOURCE_BASE = "/file";
 
     @POST
@@ -93,7 +83,9 @@ public class File {
             UserItemManager userItemManager = new UserItemManager( userName, userId );
             userItemManager.addItem( filename, fileBuffer );
 
-            System.out.println("Get localhost: " + InetAddress.getLocalHost());
+            //this had something to do with making it work locally for testing
+            //possibly when I did a SEE OTHER return code.
+            //TODO: confirm that we can rip this out at some point
             String[] host = InetAddress.getLocalHost().toString().split("/");
             if( host[0].trim().length() == 0 ) {
                 return Response.status(Response.Status.CREATED).entity(filename + " stored under user id " + userId + " " + InetAddress.getLocalHost()).build();

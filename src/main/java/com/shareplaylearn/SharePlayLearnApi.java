@@ -6,21 +6,13 @@
 
 package com.shareplaylearn;
 
-import com.shareplaylearn.resources.File;
-import com.shareplaylearn.resources.OAuth2Callback;
-import com.shareplaylearn.resources.Status;
-import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.glassfish.jersey.filter.LoggingFilter;
-import org.glassfish.jersey.media.multipart.MultiPartFeature;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
 
-import java.io.IOException;
-import java.util.Set;
 import javax.annotation.PreDestroy;
-import javax.ws.rs.core.Application;
+import java.io.IOException;
 
 /**
  *

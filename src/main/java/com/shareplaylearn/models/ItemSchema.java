@@ -4,6 +4,12 @@ package com.shareplaylearn.models;
  * Created by stu on 9/7/15.
  */
 public class ItemSchema {
+    /**
+     * These really shouldn't much change over time (if at all)
+     * And represent the context in which this instance of an item should be presented.
+     * Something like "mobile" or "crappy_network :D" might be a good addition, though.
+     * The Content Types will hopefully grow and grown! We'll see ;)
+     */
     public static final String PREVIEW_PRESENTATION_TYPE = "preview";
     public static final String ORIGINAL_PRESENTATION_TYPE = "original";
     public static final String PREFERRED_PRESENTATION_TYPE = "preferred";

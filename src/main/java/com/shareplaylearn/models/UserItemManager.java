@@ -161,13 +161,13 @@ public class UserItemManager {
                 new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret)
         );
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(itemData);
-        ObjectMetadata metadata = this.makeBasicMetadata(itemData.length, false);
+        ObjectMetadata metadata = this.makeBasicMetadata(itemData.length, false, name);
         metadata.addUserMetadata(UploadMetadataFields.CONTENT_TYPE, contentType);
         //TODO: save this metadata, along with location, to local Redis
         s3Client.putObject(ItemSchema.S3_BUCKET, itemLocation, byteArrayInputStream, metadata);
     }
 
-    private ObjectMetadata makeBasicMetadata( int bufferLength, boolean isPublic ) {
+    private ObjectMetadata makeBasicMetadata( int bufferLength, boolean isPublic, String itemName ) {
         ObjectMetadata fileMetadata = new ObjectMetadata();
         fileMetadata.setContentEncoding(MediaType.APPLICATION_OCTET_STREAM);
         if (isPublic) {
@@ -175,6 +175,7 @@ public class UserItemManager {
         } else {
             fileMetadata.addUserMetadata(UploadMetadataFields.PUBLIC, UploadMetadataFields.FALSE_VALUE);
         }
+        fileMetadata.addUserMetadata(UploadMetadataFields.DISPLAY_NAME, itemName);
         fileMetadata.setContentLength(bufferLength);
         return fileMetadata;
     }
@@ -191,6 +192,10 @@ public class UserItemManager {
             //on a per-user basis, then name of the item should be unique,
             //but variations of it may be stored under different presentation types
             //(e.g. preview, original)
+            //there is a workaround here because we may add a file extension to some preferred items
+            //we work around it by verifying a preferred item doesn't have an entry that matches without extension
+            //a better fix would be a metadata store fast enough to be usable that stores the original item name
+            //but this works for now.
             HashMap<String,UserItem> userItems = new HashMap<>();
 
             for( Map.Entry<String, String> item : items.getValue().entrySet() ) {
@@ -202,10 +207,22 @@ public class UserItemManager {
                     continue;
                 }
                 String name = path[path.length-1];
+                UserItem userItem = null;
                 if( !userItems.containsKey(name) ) {
+                    //workaround (see above)
+                    if( presentationType.equals(ItemSchema.PREFERRED_PRESENTATION_TYPE) ) {
+                        int extIndex = name.lastIndexOf(".");
+                        if( extIndex > 0 ) {
+                            if( userItems.containsKey(name.substring(0,extIndex)) ) {
+                                userItem = userItems.get(name.substring(0,extIndex));
+                            }
+                        }
+                    }
                     userItems.put(name, new UserItem( contentType ) );
                 }
-                UserItem userItem = userItems.get(name);
+                if( userItem == null ) {
+                    userItem = userItems.get(name);
+                }
                 userItem.setLocation(presentationType, location);
                 if( presentationType.equals(ItemSchema.PREVIEW_PRESENTATION_TYPE) ) {
                     userItem.addAttr("altText", "Preview of " + name);
@@ -213,6 +230,8 @@ public class UserItemManager {
             }
 
             for( Map.Entry<String, UserItem> userItem : userItems.entrySet() ) {
+                //Note that this maps to the actual name in all cases (original, preview, preferred w/out added extension)
+                //except when we add an extension to a preferred format of the item.
                 userItem.getValue().addAttr(UploadMetadataFields.DISPLAY_NAME, userItem.getKey());
                 itemList.add(userItem.getValue());
             }
@@ -223,22 +242,23 @@ public class UserItemManager {
     public HashMap<String,HashMap<String,String>> getItemLocations() {
         HashMap<String,HashMap<String,String>> itemLocations = new HashMap<>();
 
-//        AmazonS3Client s3Client = new AmazonS3Client(
-//                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
-//        String imageDir = this.getUserDir() + ItemSchema.IMAGE_CONTENT_TYPE;
-//        String previewDir = this.getUserDir() + ItemSchema.PREVIEW_IMAGE_TYPE;
-//        String originalDir = this.getUserDir() + ItemSchema.ORIGINAL_IMAGE_TYPE;
-//        String unknownDir = this.getUserDir() + ItemSchema.UNKNOWN_CONTENT_TYPE;
-//
-//        ObjectListing imageListing = s3Client.listObjects(ItemSchema.S3_BUCKET, imageDir);
-//        ObjectListing previewListing = s3Client.listObjects(ItemSchema.S3_BUCKET, previewDir);
-//        ObjectListing unknownItemListing = s3Client.listObjects(ItemSchema.S3_BUCKET, unknownDir);
-//        ObjectListing originalItemListing = s3Client.listObjects(ItemSchema.S3_BUCKET, originalDir);
-//
-//        itemLocations.put(ItemSchema.IMAGE_CONTENT_TYPE, getExternalItemListing(imageListing));
-//        itemLocations.put(ItemSchema.UNKNOWN_CONTENT_TYPE, getExternalItemListing(unknownItemListing));
-//        itemLocations.put(ItemSchema.PREVIEW_IMAGE_TYPE, getExternalItemListing(previewListing));
-//        itemLocations.put(ItemSchema.ORIGINAL_IMAGE_TYPE, getExternalItemListing(originalItemListing));
+        AmazonS3Client s3Client = new AmazonS3Client(
+                new BasicAWSCredentials(SecretsService.amazonClientId, SecretsService.amazonClientSecret));
+
+        String userDir = this.getUserDir();
+        for( String presentationType : ItemSchema.PRESENTATION_TYPES ) {
+            for( String contentType: ItemSchema.CONTENT_TYPES ) {
+                ObjectListing listing = s3Client.listObjects( ItemSchema.S3_BUCKET,
+                        userDir + presentationType + "/" + contentType );
+                HashSet<String> locations = getExternalItemListing(listing);
+                for( String location : locations ) {
+                    if( !itemLocations.containsKey(presentationType) ) {
+                        itemLocations.put(presentationType, new HashMap<String, String>() );
+                    }
+                    itemLocations.get(presentationType).put(contentType, location);
+                }
+            }
+        }
         return itemLocations;
     }
 

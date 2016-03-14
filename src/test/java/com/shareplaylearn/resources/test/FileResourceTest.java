@@ -15,6 +15,8 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.core.Response;
 import java.io.IOException;
@@ -32,18 +34,21 @@ public class FileResourceTest {
     private String userId;
     private String userName;
     private HttpClient httpClient;
+    private Logger log;
 
     public FileResourceTest(String userName, String userId, String accessToken, HttpClient httpClient) {
         this.accessToken = accessToken;
         this.httpClient = httpClient;
         this.userId = userId;
         this.userName = userName;
+        this.log = LoggerFactory.getLogger(FileResourceTest.class);
     }
 
     public void testPost() throws IOException {
         for(Map.Entry<String,String> uploadEntry : TestFiles.testUploads.entrySet()) {
             Path uploadTest = FileSystems.getDefault().getPath(uploadEntry.getValue());
             byte[] uploadBuffer = Files.readAllBytes(uploadTest);
+
             HttpEntity formEntity = MultipartEntityBuilder.create().
                     addBinaryBody("file", uploadBuffer,
                             ContentType.APPLICATION_OCTET_STREAM,
@@ -53,7 +58,7 @@ public class FileResourceTest {
                     addTextBody("access_token", accessToken).
                     addTextBody("filename",uploadEntry.getKey()).build();
 
-            System.out.println("Testing upload of: " + uploadTest.toString());
+            log.debug("Testing upload of: " + uploadTest.toString());
             HttpPost httpPost = new HttpPost(BackendTest.TEST_BASE_URL + File.RESOURCE_BASE + "/form");
             httpPost.setEntity(formEntity);
             try (CloseableHttpResponse response = (CloseableHttpResponse) httpClient.execute(httpPost)) {
@@ -116,7 +121,7 @@ public class FileResourceTest {
                 }
                 throw new RuntimeException(message);
             }
-            System.out.println("Successfully retrieved the test file - and the bytes matched! :)");
+            log.debug("Successfully retrieved the test file - and the bytes matched! :)");
         }
     }
 
@@ -139,8 +144,9 @@ public class FileResourceTest {
             try (CloseableHttpResponse response = (CloseableHttpResponse) httpClient.execute(filelistGet)) {
                 BackendTest.ProcessedHttpResponse processedHttpResponse = new BackendTest.ProcessedHttpResponse(response);
                 if (processedHttpResponse.code != Response.Status.OK.getStatusCode()) {
-                    throw new RuntimeException("Error retrieving file list for user: " + this.userName + " " +
-                            processedHttpResponse.completeMessage);
+                    String message = "Error retrieving file list for user: " + this.userName + " " +
+                            processedHttpResponse.completeMessage;
+                    throw new RuntimeException(message);
                 }
                 List<UserItem> filelist;
                 try {
@@ -148,23 +154,40 @@ public class FileResourceTest {
                     Type listType = new TypeToken<ArrayList<UserItem>>(){}.getType();
                     filelist = gson.fromJson(processedHttpResponse.entity, listType);
                 } catch (Throwable t) {
-                    throw new RuntimeException("Failed to parse response entity into json: " + processedHttpResponse.entity +
-                            "\n" + Exceptions.asString(t));
+                    String message = "Failed to parse response entity into json: " + processedHttpResponse.entity +
+                            "\n" + Exceptions.asString(t);
+                    log.error( message );
+                    throw new RuntimeException( message );
                 }
-                System.out.println("Got filelist: " + processedHttpResponse.entity);
+                log.debug("Got filelist: " + processedHttpResponse.entity);
                 boolean found = false;
+                //this basically is just doing a linear search of the file list to see if
+                //we've found the test upload in the filelist (we should!)
+                //and validates that file, if possible
                 for( UserItem item : filelist ) {
-                    if( item.getPreferredLocation().endsWith(uploadEntry.getKey()) ) {
+                    if( item.getOriginalLocation() == null ) {
+                        String message = "Original location was null, this should not happen.";
+                        log.error(message);
+                        throw new RuntimeException(message);
+                    }
+                    if( item.getOriginalLocation().endsWith(uploadEntry.getKey()) ) {
                         Path itemPath = FileSystems.getDefault().getPath( uploadEntry.getValue() );
-                        testGet( item.getPreferredLocation(), itemPath, true );
+                        //the final argument indicates whether we want to validate the file contents or not
+                        //If the preferred location is not equal to the original location, then
+                        //it has likely been transformed, and should not have the same contents
+                        testGet( item.getPreferredLocation(), itemPath, item.getPreferredLocation().equals(
+                                item.getOriginalLocation()
+                        ) );
                         found = true;
                     }
                 }
                 if (!found) {
-                    throw new RuntimeException("Error: file list " + processedHttpResponse.entity + " did not contain test filename " +
-                            uploadEntry.getKey());
+                    String message = "Error: file list " + processedHttpResponse.entity + " did not contain test filename " +
+                            uploadEntry.getKey();
+                    log.error(message);
+                    throw new RuntimeException(message);
                 }
-                System.out.println("Successfully retrieved file list: " + processedHttpResponse.entity);
+                log.debug("Successfully retrieved file list: " + processedHttpResponse.entity);
             }
         }
     }

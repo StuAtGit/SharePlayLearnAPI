@@ -23,7 +23,10 @@ import java.util.*;
  * Metadata about the items the user has, and possibly
  * cached values for the items.
  * Location, type, names, etc.
- * Data here should be safe to cache in Redis (userid but no auth tokens, etc)
+ * Data here should be safe to cache in Redis (userid but no auth tokens, etc).
+ * Right now, we just implicitly store the metadata as part of the item path.
+ * Once we have a true metadata store, this code can be greatly simplified.
+ * (in particular, the getItemList() that reconstructs metadata from the path).
  */
 public class UserItemManager {
     public static class AvailableEncodings {
@@ -263,7 +266,15 @@ public class UserItemManager {
                         this.getItemDirectory(contentType, presentationType) );
 
                 HashSet<String> locations = getExternalItemListing(listing);
+                String curDirectory = makeExternalLocation(getItemDirectory(contentType, presentationType));
                 for( String location : locations ) {
+                    //it would be nice if s3 didn't return stuff that doesn't technically match the prefix
+                    //(due to trailing /), but it looks like it might
+                    if( curDirectory.endsWith(location) ) {
+                        log.debug( "Skipping location: " + location + " because it looks like a group (folder)" +
+                                ", not an object" );
+                        continue;
+                    }
                     if( !itemLocations.containsKey(contentType) ) {
                         itemLocations.put(contentType, new HashMap<>() );
                     }
@@ -280,7 +291,8 @@ public class UserItemManager {
     private HashSet<String> getExternalItemListing( ObjectListing objectListing ) {
         HashSet<String> itemLocations = new HashSet<>();
         for( S3ObjectSummary obj : objectListing.getObjectSummaries() ) {
-            String externalPath = makeExternalLocation(obj.getKey());
+            String internalPath = obj.getKey();
+            String externalPath = makeExternalLocation(internalPath);
             if( externalPath != null ) {
                 itemLocations.add(externalPath);
                 log.debug("External path was " + externalPath);
@@ -322,12 +334,12 @@ public class UserItemManager {
 
     public String getItemDirectory(String contentType,
                                    ItemSchema.PresentationType presentationType) {
-        return this.userDir + contentType + "/" + presentationType;
+        return this.userDir + contentType + "/" + presentationType + "/";
     }
 
     public String getItemLocation( String name, String contentType,
                                    ItemSchema.PresentationType presentationType ) {
-        return this.getItemDirectory( contentType, presentationType ) + "/" + name;
+        return this.getItemDirectory( contentType, presentationType ) + name;
     }
 
     /**
